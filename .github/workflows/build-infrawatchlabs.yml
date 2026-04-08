@@ -55,8 +55,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORG }}/plane-web:${{ needs.setup.outputs.image_tag }}
             ${{ env.DOCKER_ORG }}/plane-web:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-space:
     name: Build plane-space
@@ -77,8 +75,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORG }}/plane-space:${{ needs.setup.outputs.image_tag }}
             ${{ env.DOCKER_ORG }}/plane-space:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-admin:
     name: Build plane-admin
@@ -99,8 +95,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORG }}/plane-admin:${{ needs.setup.outputs.image_tag }}
             ${{ env.DOCKER_ORG }}/plane-admin:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-live:
     name: Build plane-live
@@ -121,8 +115,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORG }}/plane-live:${{ needs.setup.outputs.image_tag }}
             ${{ env.DOCKER_ORG }}/plane-live:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-api:
     name: Build plane-api
@@ -143,8 +135,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORG }}/plane-api:${{ needs.setup.outputs.image_tag }}
             ${{ env.DOCKER_ORG }}/plane-api:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   build-proxy:
     name: Build plane-proxy
@@ -165,8 +155,6 @@ jobs:
           tags: |
             ${{ env.DOCKER_ORG }}/plane-proxy:${{ needs.setup.outputs.image_tag }}
             ${{ env.DOCKER_ORG }}/plane-proxy:latest
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
 
   summary:
     name: Build Summary
