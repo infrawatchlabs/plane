@@ -14,6 +14,7 @@ concurrency:
 
 env:
   DOCKER_ORG: infrawatchlabs
+  DOCKER_BUILDKIT: 1
 
 jobs:
   setup:
@@ -22,19 +23,30 @@ jobs:
     outputs:
       image_tag: ${{ steps.vars.outputs.image_tag }}
       is_release: ${{ steps.vars.outputs.is_release }}
+      stable_tag: ${{ steps.vars.outputs.stable_tag }}
     steps:
       - name: Set build variables
         id: vars
         run: |
           if [ -n "${{ github.event.inputs.release_version }}" ]; then
-            TAG="${{ github.event.inputs.release_version }}"
+            REL_VERSION="${{ github.event.inputs.release_version }}"
+
+            # Validate semver
+            semver_regex="^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)?$"
+            if [[ ! ${REL_VERSION} =~ $semver_regex ]]; then
+              echo "::error::Invalid version format: ${REL_VERSION}. Must be semver (e.g. v1.2.3)"
+              exit 1
+            fi
+
+            echo "image_tag=${REL_VERSION}" >> "$GITHUB_OUTPUT"
             echo "is_release=true" >> "$GITHUB_OUTPUT"
+            echo "stable_tag=true" >> "$GITHUB_OUTPUT"
           else
             TAG=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9.-]//g')
+            echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
             echo "is_release=false" >> "$GITHUB_OUTPUT"
+            echo "stable_tag=false" >> "$GITHUB_OUTPUT"
           fi
-          echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
-          echo "::notice::Building with tag: ${TAG}"
 
   build-web:
     name: Build plane-web
@@ -54,8 +66,9 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_ORG }}/plane-web:${{ needs.setup.outputs.image_tag }}
-            ${{ env.DOCKER_ORG }}/plane-web:latest
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-web:latest
+            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-web:stable', env.DOCKER_ORG) || format('{0}/plane-web:latest', env.DOCKER_ORG) }}
+          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-web:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-web:buildcache,mode=max
 
   build-space:
     name: Build plane-space
@@ -75,8 +88,9 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_ORG }}/plane-space:${{ needs.setup.outputs.image_tag }}
-            ${{ env.DOCKER_ORG }}/plane-space:latest
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-space:latest
+            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-space:stable', env.DOCKER_ORG) || format('{0}/plane-space:latest', env.DOCKER_ORG) }}
+          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-space:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-space:buildcache,mode=max
 
   build-admin:
     name: Build plane-admin
@@ -96,8 +110,9 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_ORG }}/plane-admin:${{ needs.setup.outputs.image_tag }}
-            ${{ env.DOCKER_ORG }}/plane-admin:latest
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-admin:latest
+            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-admin:stable', env.DOCKER_ORG) || format('{0}/plane-admin:latest', env.DOCKER_ORG) }}
+          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-admin:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-admin:buildcache,mode=max
 
   build-live:
     name: Build plane-live
@@ -117,8 +132,9 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_ORG }}/plane-live:${{ needs.setup.outputs.image_tag }}
-            ${{ env.DOCKER_ORG }}/plane-live:latest
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-live:latest
+            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-live:stable', env.DOCKER_ORG) || format('{0}/plane-live:latest', env.DOCKER_ORG) }}
+          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-live:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-live:buildcache,mode=max
 
   build-api:
     name: Build plane-api
@@ -138,8 +154,9 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_ORG }}/plane-api:${{ needs.setup.outputs.image_tag }}
-            ${{ env.DOCKER_ORG }}/plane-api:latest
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-api:latest
+            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-api:stable', env.DOCKER_ORG) || format('{0}/plane-api:latest', env.DOCKER_ORG) }}
+          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-api:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-api:buildcache,mode=max
 
   build-proxy:
     name: Build plane-proxy
@@ -159,8 +176,9 @@ jobs:
           push: true
           tags: |
             ${{ env.DOCKER_ORG }}/plane-proxy:${{ needs.setup.outputs.image_tag }}
-            ${{ env.DOCKER_ORG }}/plane-proxy:latest
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-proxy:latest
+            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-proxy:stable', env.DOCKER_ORG) || format('{0}/plane-proxy:latest', env.DOCKER_ORG) }}
+          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-proxy:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-proxy:buildcache,mode=max
 
   summary:
     name: Build Summary
