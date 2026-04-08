@@ -86,6 +86,35 @@ jobs:
           cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache,mode=max
 
+  release:
+    name: Create Release
+    runs-on: ubuntu-22.04
+    if: needs.setup.outputs.stable_tag == 'true'
+    needs: [setup, build]
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Prepare release assets
+        run: |
+          mkdir -p release-assets
+          REL_VERSION="${{ needs.setup.outputs.image_tag }}"
+          cp deployments/infrawatch/install.sh release-assets/install.sh
+          cp deployments/infrawatch/variables.env release-assets/variables.env
+          # Stamp the release version into docker-compose
+          sed "s/\${APP_RELEASE:-latest}/\${APP_RELEASE:-${REL_VERSION}}/g" \
+            deployments/infrawatch/docker-compose.yml > release-assets/docker-compose.yml
+
+      - name: Create GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ needs.setup.outputs.image_tag }}
+          name: ${{ needs.setup.outputs.image_tag }}
+          generate_release_notes: true
+          files: |
+            release-assets/install.sh
+            release-assets/docker-compose.yml
+            release-assets/variables.env
+
   summary:
     name: Build Summary
     runs-on: ubuntu-22.04
