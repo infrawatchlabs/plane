@@ -22,7 +22,6 @@ jobs:
     runs-on: ubuntu-22.04
     outputs:
       image_tag: ${{ steps.vars.outputs.image_tag }}
-      is_release: ${{ steps.vars.outputs.is_release }}
       stable_tag: ${{ steps.vars.outputs.stable_tag }}
     steps:
       - name: Set build variables
@@ -30,28 +29,45 @@ jobs:
         run: |
           if [ -n "${{ github.event.inputs.release_version }}" ]; then
             REL_VERSION="${{ github.event.inputs.release_version }}"
-
-            # Validate semver
             semver_regex="^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)?$"
             if [[ ! ${REL_VERSION} =~ $semver_regex ]]; then
               echo "::error::Invalid version format: ${REL_VERSION}. Must be semver (e.g. v1.2.3)"
               exit 1
             fi
-
             echo "image_tag=${REL_VERSION}" >> "$GITHUB_OUTPUT"
-            echo "is_release=true" >> "$GITHUB_OUTPUT"
             echo "stable_tag=true" >> "$GITHUB_OUTPUT"
           else
             TAG=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9.-]//g')
             echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
-            echo "is_release=false" >> "$GITHUB_OUTPUT"
             echo "stable_tag=false" >> "$GITHUB_OUTPUT"
           fi
 
-  build-web:
-    name: Build plane-web
+  build:
+    name: Build ${{ matrix.image }}
     runs-on: ubuntu-22.04
     needs: [setup]
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - image: plane-web
+            context: .
+            dockerfile: ./apps/web/Dockerfile.web
+          - image: plane-space
+            context: .
+            dockerfile: ./apps/space/Dockerfile.space
+          - image: plane-admin
+            context: .
+            dockerfile: ./apps/admin/Dockerfile.admin
+          - image: plane-live
+            context: .
+            dockerfile: ./apps/live/Dockerfile.live
+          - image: plane-api
+            context: ./apps/api
+            dockerfile: ./apps/api/Dockerfile.api
+          - image: plane-proxy
+            context: ./apps/proxy
+            dockerfile: ./apps/proxy/Dockerfile.ce
     steps:
       - uses: actions/checkout@v6
       - uses: docker/setup-buildx-action@v4
@@ -61,136 +77,20 @@ jobs:
           password: ${{ secrets.DOCKERHUB_TOKEN }}
       - uses: docker/build-push-action@v6
         with:
-          context: .
-          file: ./apps/web/Dockerfile.web
+          context: ${{ matrix.context }}
+          file: ${{ matrix.dockerfile }}
           push: true
           tags: |
-            ${{ env.DOCKER_ORG }}/plane-web:${{ needs.setup.outputs.image_tag }}
-            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-web:stable', env.DOCKER_ORG) || format('{0}/plane-web:latest', env.DOCKER_ORG) }}
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-web:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-web:buildcache,mode=max
-
-  build-space:
-    name: Build plane-space
-    runs-on: ubuntu-22.04
-    needs: [setup]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/space/Dockerfile.space
-          push: true
-          tags: |
-            ${{ env.DOCKER_ORG }}/plane-space:${{ needs.setup.outputs.image_tag }}
-            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-space:stable', env.DOCKER_ORG) || format('{0}/plane-space:latest', env.DOCKER_ORG) }}
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-space:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-space:buildcache,mode=max
-
-  build-admin:
-    name: Build plane-admin
-    runs-on: ubuntu-22.04
-    needs: [setup]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/admin/Dockerfile.admin
-          push: true
-          tags: |
-            ${{ env.DOCKER_ORG }}/plane-admin:${{ needs.setup.outputs.image_tag }}
-            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-admin:stable', env.DOCKER_ORG) || format('{0}/plane-admin:latest', env.DOCKER_ORG) }}
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-admin:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-admin:buildcache,mode=max
-
-  build-live:
-    name: Build plane-live
-    runs-on: ubuntu-22.04
-    needs: [setup]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: .
-          file: ./apps/live/Dockerfile.live
-          push: true
-          tags: |
-            ${{ env.DOCKER_ORG }}/plane-live:${{ needs.setup.outputs.image_tag }}
-            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-live:stable', env.DOCKER_ORG) || format('{0}/plane-live:latest', env.DOCKER_ORG) }}
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-live:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-live:buildcache,mode=max
-
-  build-api:
-    name: Build plane-api
-    runs-on: ubuntu-22.04
-    needs: [setup]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: ./apps/api
-          file: ./apps/api/Dockerfile.api
-          push: true
-          tags: |
-            ${{ env.DOCKER_ORG }}/plane-api:${{ needs.setup.outputs.image_tag }}
-            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-api:stable', env.DOCKER_ORG) || format('{0}/plane-api:latest', env.DOCKER_ORG) }}
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-api:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-api:buildcache,mode=max
-
-  build-proxy:
-    name: Build plane-proxy
-    runs-on: ubuntu-22.04
-    needs: [setup]
-    steps:
-      - uses: actions/checkout@v6
-      - uses: docker/setup-buildx-action@v4
-      - uses: docker/login-action@v4
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-      - uses: docker/build-push-action@v6
-        with:
-          context: ./apps/proxy
-          file: ./apps/proxy/Dockerfile.ce
-          push: true
-          tags: |
-            ${{ env.DOCKER_ORG }}/plane-proxy:${{ needs.setup.outputs.image_tag }}
-            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/plane-proxy:stable', env.DOCKER_ORG) || format('{0}/plane-proxy:latest', env.DOCKER_ORG) }}
-          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/plane-proxy:buildcache
-          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/plane-proxy:buildcache,mode=max
+            ${{ env.DOCKER_ORG }}/${{ matrix.image }}:${{ needs.setup.outputs.image_tag }}
+            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/{1}:stable', env.DOCKER_ORG, matrix.image) || format('{0}/{1}:latest', env.DOCKER_ORG, matrix.image) }}
+          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache
+          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache,mode=max
 
   summary:
     name: Build Summary
     runs-on: ubuntu-22.04
-    needs:
-      - setup
-      - build-web
-      - build-space
-      - build-admin
-      - build-live
-      - build-api
-      - build-proxy
+    if: always()
+    needs: [setup, build]
     steps:
       - name: Summary
         run: |
@@ -199,9 +99,6 @@ jobs:
           echo "" >> "$GITHUB_STEP_SUMMARY"
           echo "| Image | Tag |" >> "$GITHUB_STEP_SUMMARY"
           echo "|-------|-----|" >> "$GITHUB_STEP_SUMMARY"
-          echo "| infrawatchlabs/plane-web | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| infrawatchlabs/plane-space | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| infrawatchlabs/plane-admin | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| infrawatchlabs/plane-live | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| infrawatchlabs/plane-api | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
-          echo "| infrawatchlabs/plane-proxy | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
+          for img in plane-web plane-space plane-admin plane-live plane-api plane-proxy; do
+            echo "| infrawatchlabs/${img} | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
+          done
