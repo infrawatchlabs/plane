@@ -8,17 +8,18 @@ import * as React from "react";
 
 import type { ISvgIcons } from "../type";
 
-export function PlaneLockup({ width = "253", height = "53", className, color = "currentColor" }: ISvgIcons) {
+export function PlaneLockup({ width = "600", height = "53", className, color = "currentColor" }: ISvgIcons) {
   return (
     <svg
       width={width}
       height={height}
-      viewBox="0 0 253 53"
+      viewBox="0 0 600 53"
       fill={color}
       xmlns="http://www.w3.org/2000/svg"
       className={className}
     >
-      <g clipPath="url(#clip0_27_76)">
+      {/* Plane icon + wordmark (original 253x53) */}
+      <g clipPath="url(#clip0_plane)">
         <path
           d="M217.077 51.4468H210.972L210.98 31.4317C210.717 27.7545 208.786 25.1545 205.03 24.6199C198.587 23.7006 194.663 27.8828 194.21 34.0258L194.218 51.4468H188.041V20.2543H192.158L194.255 26.8846H194.6C195.825 22.8701 198.684 20.4831 202.898 19.5757C210.126 18.0231 216.643 22.2724 217.079 29.8239V51.4468H217.077Z"
           fill={color}
@@ -41,8 +42,126 @@ export function PlaneLockup({ width = "253", height = "53", className, color = "
           fill={color}
         />
       </g>
+
+      {/* Separator pipe */}
+      <rect x="265" y="6" width="1.5" height="41" rx="0.75" fill={color} opacity="0.3" />
+
+      {/* InfraWatch horizontal logo — scaled 2.2x to match Plane height */}
+      <g transform="translate(275, -9) scale(2.2)">
+        {/* Bracket icon — left bracket */}
+        <polyline
+          points="11,8 4,16 11,24"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        {/* Bracket icon — right bracket */}
+        <polyline
+          points="21,8 28,16 21,24"
+          stroke={color}
+          strokeWidth="2.5"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          fill="none"
+        />
+        {/* Radar fill wedge */}
+        <path d="M16 16 L16 11 A5 5 0 0 1 21 16" fill={color} opacity="0.2" stroke="none" />
+        {/* Radar arc inner */}
+        <path
+          d="M18 16 A2.5 2.5 0 0 0 16 13.5"
+          stroke={color}
+          strokeWidth="1.2"
+          opacity="0.5"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* Radar arc outer */}
+        <path
+          d="M20 16 A4.5 4.5 0 0 0 16 11.5"
+          stroke={color}
+          strokeWidth="1"
+          opacity="0.3"
+          fill="none"
+          strokeLinecap="round"
+        />
+        {/* Radar circle */}
+        <circle cx="16" cy="16" r="4.5" stroke={color} strokeWidth="1.5" opacity="0.25" fill="none" />
+        {/* Radar dot */}
+        <circle cx="16" cy="16" r="2" fill={color} stroke="none" />
+
+        {/* Wordmark — "InfraWatch" */}
+        <g>
+          {/* I */}
+          <path
+            d="M66 0V700H198V0Z"
+            fill={color}
+            transform="translate(40.0000,25.6800) scale(0.020000,-0.020000)"
+          />
+          {/* n */}
+          <path
+            d="M70 0V496H194V431H212Q224 457 257.0 480.5Q290 504 357 504Q415 504 458.5 477.5Q502 451 526.0 404.5Q550 358 550 296V0H424V286Q424 342 396.5 370.0Q369 398 318 398Q260 398 228.0 359.5Q196 321 196 252V0Z"
+            fill={color}
+            transform="translate(45.2800,25.6800) scale(0.020000,-0.020000)"
+          />
+          {/* f */}
+          <path
+            d="M152 0V392H26V496H152V588Q152 639 182.5 669.5Q213 700 262 700H392V596H306Q278 596 278 566V496H408V392H278V0Z"
+            fill={color}
+            transform="translate(57.6000,25.6800) scale(0.020000,-0.020000)"
+          />
+          {/* r */}
+          <path
+            d="M70 0V496H194V440H212Q223 470 248.5 484.0Q274 498 308 498H368V386H306Q258 386 227.0 360.5Q196 335 196 282V0Z"
+            fill={color}
+            transform="translate(66.3200,25.6800) scale(0.020000,-0.020000)"
+          />
+          {/* a */}
+          <path
+            d="M224 -14Q171 -14 129.0 4.5Q87 23 62.5 58.5Q38 94 38 145Q38 222 92.0 261.0Q146 300 230 300H366V328Q366 363 344.0 385.5Q322 408 274 408Q227 408 204.0 386.5Q181 365 174 331L58 370Q70 408 96.5 439.5Q123 471 167.5 490.5Q212 510 276 510Q374 510 431.0 461.0Q488 412 488 319V134Q488 104 516 104H556V0H472Q435 0 411.0 18.0Q387 36 387 66V67H368Q364 55 350.0 35.5Q336 16 306.0 1.0Q276 -14 224 -14ZM246 88Q299 88 332.5 117.5Q366 147 366 196V206H239Q204 206 184.0 191.0Q164 176 164 149Q164 122 185.0 105.0Q206 88 246 88Z"
+            fill={color}
+            transform="translate(74.2400,25.6800) scale(0.020000,-0.020000)"
+          />
+          {/* W */}
+          <g transform="translate(0,25.6800) scale(1,0.88) translate(0,-25.6800)">
+            <path
+              d="M163 0 40 700H105L217 38H229L374 700H492L637 38H649L761 700H826L703 0H584L439 662H427L282 0Z"
+              fill={color}
+              transform="translate(85.8000,25.6800) scale(0.020000,-0.020000)"
+            />
+            {/* a */}
+            <path
+              d="M237 -14Q186 -14 144.5 3.5Q103 21 79.0 55.0Q55 89 55 137Q55 186 79.0 218.0Q103 250 144.0 266.0Q185 282 235 282H413V321Q413 380 379.0 413.0Q345 446 280 446Q216 446 178.5 414.5Q141 383 128 330L70 347Q87 411 138.0 455.5Q189 500 280 500Q372 500 422.5 452.0Q473 404 473 318V82Q473 52 501 52H548V0H484Q453 0 435.0 18.5Q417 37 417 69V76H407Q394 54 373.5 33.0Q353 12 320.0 -1.0Q287 -14 237 -14ZM241 40Q318 40 365.5 86.5Q413 133 413 218V230H236Q184 230 149.5 207.5Q115 185 115 138Q115 91 150.5 65.5Q186 40 241 40Z"
+              fill={color}
+              transform="translate(103.1200,25.6800) scale(0.020000,-0.020000)"
+            />
+            {/* t */}
+            <path
+              d="M264 0Q225 0 205.5 20.0Q186 40 186 76V432H30V486H186V668H246V486H416V432H246V84Q246 54 276 54H390V0Z"
+              fill={color}
+              transform="translate(114.6000,25.6800) scale(0.020000,-0.020000)"
+            />
+            {/* c */}
+            <path
+              d="M310 -14Q239 -14 183.5 16.5Q128 47 96.0 104.0Q64 161 64 238V248Q64 326 96.0 382.5Q128 439 183.5 469.5Q239 500 310 500Q380 500 428.5 473.5Q477 447 504.5 404.5Q532 362 539 315L480 303Q475 342 455.0 374.5Q435 407 399.0 426.5Q363 446 310 446Q257 446 215.0 421.5Q173 397 148.5 352.5Q124 308 124 247V239Q124 178 148.5 133.5Q173 89 215.0 64.5Q257 40 310 40Q390 40 432.0 81.5Q474 123 484 183L543 171Q534 124 505.5 81.5Q477 39 428.5 12.5Q380 -14 310 -14Z"
+              fill={color}
+              transform="translate(123.8400,25.6800) scale(0.020000,-0.020000)"
+            />
+            {/* h */}
+            <path
+              d="M88 0V700H148V401H160Q172 425 193.5 446.5Q215 468 249.5 481.5Q284 495 336 495Q389 495 433.0 473.0Q477 451 503.5 407.0Q530 363 530 296V0H470V292Q470 372 430.0 406.5Q390 441 323 441Q248 441 198.0 392.0Q148 343 148 243V0Z"
+              fill={color}
+              transform="translate(135.9000,25.6800) scale(0.020000,-0.020000)"
+            />
+          </g>
+          {/* Overline above "Watch" */}
+          <rect x="85.8" y="10.8" width="60.7" height="1.2" rx="0.6" ry="0.6" fill={color} opacity="0.4" />
+        </g>
+      </g>
+
       <defs>
-        <clipPath id="clip0_27_76">
+        <clipPath id="clip0_plane">
           <rect width="252" height="53" fill="white" />
         </clipPath>
       </defs>
