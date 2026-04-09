@@ -1,0 +1,1651 @@
+From ace3d7505f93f5225898e22359a567f69b9b8b36 Mon Sep 17 00:00:00 2001
+From: "infrawatch-agent[bot]"
+ <269943525+infrawatch-agent[bot]@users.noreply.github.com>
+Date: Wed, 8 Apr 2026 20:55:44 +0530
+Subject: [PATCH 1/7] chore: InfraWatch Plane build workflow (#1)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+* chore: add InfraWatch build workflow for Plane images
+
+Build and push 6 Plane images to infrawatchlabs/ Docker Hub:
+- plane-web, plane-space, plane-admin, plane-live, plane-api, plane-proxy
+
+Uses standard docker/build-push-action (no makeplane custom actions).
+Trigger: workflow_dispatch only, with optional release version tag.
+All builds run in parallel with GHA cache.
+
+* chore: remove GHA build cache — not needed for infrequent builds
+
+* chore: add Docker Hub registry cache-from for faster rebuilds
+
+* chore: bump actions/checkout to v6
+
+* chore: bump docker actions to latest (setup-buildx v4, login v4)
+
+* chore: align build workflow with makeplane build-push action
+
+- Add cache-to: registry (push buildcache tag to Docker Hub)
+- Add cache-from: buildcache tag (not :latest — dedicated cache layer)
+- Add semver validation for release versions
+- Add stable tag for releases (version + :stable), latest for branch builds
+- Add DOCKER_BUILDKIT=1 env var
+- Skipped (not needed): private registry, FIPS, AIO, ARM64, build-args
+
+* refactor: use matrix strategy for parallel builds (208 → 104 lines)
+
+---------
+
+Co-authored-by: Manish Gupta <manish@plane.so>
+---
+ .github/workflows/build-infrawatchlabs.yml | 104 +++++++++++++++++++++
+ 1 file changed, 104 insertions(+)
+ create mode 100644 .github/workflows/build-infrawatchlabs.yml
+
+diff --git a/.github/workflows/build-infrawatchlabs.yml b/.github/workflows/build-infrawatchlabs.yml
+new file mode 100644
+index 000000000..77dcb7b7e
+--- /dev/null
++++ b/.github/workflows/build-infrawatchlabs.yml
+@@ -0,0 +1,104 @@
++name: Build & Push InfraWatch Plane Images
++
++on:
++  workflow_dispatch:
++    inputs:
++      release_version:
++        description: "Release version tag (e.g. v1.0.0). Leave empty for branch-name tag."
++        type: string
++        default: ""
++
++concurrency:
++  group: ${{ github.workflow }}-${{ github.ref }}
++  cancel-in-progress: true
++
++env:
++  DOCKER_ORG: infrawatchlabs
++  DOCKER_BUILDKIT: 1
++
++jobs:
++  setup:
++    name: Build Setup
++    runs-on: ubuntu-22.04
++    outputs:
++      image_tag: ${{ steps.vars.outputs.image_tag }}
++      stable_tag: ${{ steps.vars.outputs.stable_tag }}
++    steps:
++      - name: Set build variables
++        id: vars
++        run: |
++          if [ -n "${{ github.event.inputs.release_version }}" ]; then
++            REL_VERSION="${{ github.event.inputs.release_version }}"
++            semver_regex="^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)?$"
++            if [[ ! ${REL_VERSION} =~ $semver_regex ]]; then
++              echo "::error::Invalid version format: ${REL_VERSION}. Must be semver (e.g. v1.2.3)"
++              exit 1
++            fi
++            echo "image_tag=${REL_VERSION}" >> "$GITHUB_OUTPUT"
++            echo "stable_tag=true" >> "$GITHUB_OUTPUT"
++          else
++            TAG=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9.-]//g')
++            echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
++            echo "stable_tag=false" >> "$GITHUB_OUTPUT"
++          fi
++
++  build:
++    name: Build ${{ matrix.image }}
++    runs-on: ubuntu-22.04
++    needs: [setup]
++    strategy:
++      fail-fast: false
++      matrix:
++        include:
++          - image: plane-web
++            context: .
++            dockerfile: ./apps/web/Dockerfile.web
++          - image: plane-space
++            context: .
++            dockerfile: ./apps/space/Dockerfile.space
++          - image: plane-admin
++            context: .
++            dockerfile: ./apps/admin/Dockerfile.admin
++          - image: plane-live
++            context: .
++            dockerfile: ./apps/live/Dockerfile.live
++          - image: plane-api
++            context: ./apps/api
++            dockerfile: ./apps/api/Dockerfile.api
++          - image: plane-proxy
++            context: ./apps/proxy
++            dockerfile: ./apps/proxy/Dockerfile.ce
++    steps:
++      - uses: actions/checkout@v6
++      - uses: docker/setup-buildx-action@v4
++      - uses: docker/login-action@v4
++        with:
++          username: ${{ secrets.DOCKERHUB_USERNAME }}
++          password: ${{ secrets.DOCKERHUB_TOKEN }}
++      - uses: docker/build-push-action@v6
++        with:
++          context: ${{ matrix.context }}
++          file: ${{ matrix.dockerfile }}
++          push: true
++          tags: |
++            ${{ env.DOCKER_ORG }}/${{ matrix.image }}:${{ needs.setup.outputs.image_tag }}
++            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/{1}:stable', env.DOCKER_ORG, matrix.image) || format('{0}/{1}:latest', env.DOCKER_ORG, matrix.image) }}
++          cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache
++          cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache,mode=max
++
++  summary:
++    name: Build Summary
++    runs-on: ubuntu-22.04
++    if: always()
++    needs: [setup, build]
++    steps:
++      - name: Summary
++        run: |
++          TAG="${{ needs.setup.outputs.image_tag }}"
++          echo "## Build Complete" >> "$GITHUB_STEP_SUMMARY"
++          echo "" >> "$GITHUB_STEP_SUMMARY"
++          echo "| Image | Tag |" >> "$GITHUB_STEP_SUMMARY"
++          echo "|-------|-----|" >> "$GITHUB_STEP_SUMMARY"
++          for img in plane-web plane-space plane-admin plane-live plane-api plane-proxy; do
++            echo "| infrawatchlabs/${img} | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
++          done
+-- 
+2.45.1
+
+
+From 723b730f8b80ffa4ca41f3f09deb5927b94f480e Mon Sep 17 00:00:00 2001
+From: "infrawatch-agent[bot]"
+ <269943525+infrawatch-agent[bot]@users.noreply.github.com>
+Date: Thu, 9 Apr 2026 09:10:54 +0530
+Subject: [PATCH 2/7] chore: add InfraWatch docker-compose (#2)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+* chore: add InfraWatch build workflow for Plane images
+
+Build and push 6 Plane images to infrawatchlabs/ Docker Hub:
+- plane-web, plane-space, plane-admin, plane-live, plane-api, plane-proxy
+
+Uses standard docker/build-push-action (no makeplane custom actions).
+Trigger: workflow_dispatch only, with optional release version tag.
+All builds run in parallel with GHA cache.
+
+* chore: remove GHA build cache — not needed for infrequent builds
+
+* chore: add Docker Hub registry cache-from for faster rebuilds
+
+* chore: bump actions/checkout to v6
+
+* chore: bump docker actions to latest (setup-buildx v4, login v4)
+
+* chore: align build workflow with makeplane build-push action
+
+- Add cache-to: registry (push buildcache tag to Docker Hub)
+- Add cache-from: buildcache tag (not :latest — dedicated cache layer)
+- Add semver validation for release versions
+- Add stable tag for releases (version + :stable), latest for branch builds
+- Add DOCKER_BUILDKIT=1 env var
+- Skipped (not needed): private registry, FIPS, AIO, ARM64, build-args
+
+* refactor: use matrix strategy for parallel builds (208 → 104 lines)
+
+* chore: add InfraWatch docker-compose for self-hosted Plane
+
+Copy of community docker-compose with:
+- infrawatchlabs/ images instead of makeplane/
+- plane-api instead of plane-backend (matching our build names)
+- Default tag: latest (branch builds) instead of stable
+
+* feat: add deployments/infrawatch with install.sh, docker-compose, variables.env
+
+- docker-compose.yml: host-mounted volumes (./data/*), infrawatchlabs images
+- variables.env: defaults for self-hosted deployment
+- install.sh: download/install/start/stop/upgrade/backup/logs
+- Build workflow: create GitHub release with these 3 files as assets
+- Remove old docker-compose.infrawatchlabs.yml from cli/community
+
+* fix: stamp APP_RELEASE version in variables.env for release assets
+
+* feat: add Build/Release/Prerelease workflow inputs
+
+- Build: pushes branch-name + :latest tags
+- Release: pushes version + :stable tags, creates GitHub release with assets
+- Prerelease: pushes version tag only (no :stable, no :latest), GitHub release marked as prerelease
+
+* fix: only tag :latest on builds from main branch
+
+* feat: upload deploy assets as artifact on every build for testing
+
+---------
+
+Co-authored-by: Manish Gupta <manish@plane.so>
+Co-authored-by: Manish Gupta <59428681+mguptahub@users.noreply.github.com>
+---
+ .github/workflows/build-infrawatchlabs.yml | 117 ++++++++-
+ deployments/infrawatch/docker-compose.yml  | 192 ++++++++++++++
+ deployments/infrawatch/install.sh          | 277 +++++++++++++++++++++
+ deployments/infrawatch/variables.env       |  71 ++++++
+ 4 files changed, 647 insertions(+), 10 deletions(-)
+ create mode 100644 deployments/infrawatch/docker-compose.yml
+ create mode 100755 deployments/infrawatch/install.sh
+ create mode 100644 deployments/infrawatch/variables.env
+
+diff --git a/.github/workflows/build-infrawatchlabs.yml b/.github/workflows/build-infrawatchlabs.yml
+index 77dcb7b7e..35041631a 100644
+--- a/.github/workflows/build-infrawatchlabs.yml
++++ b/.github/workflows/build-infrawatchlabs.yml
+@@ -3,10 +3,22 @@ name: Build & Push InfraWatch Plane Images
+ on:
+   workflow_dispatch:
+     inputs:
++      build_type:
++        description: "Type of build"
++        required: true
++        type: choice
++        default: "Build"
++        options:
++          - "Build"
++          - "Release"
+       release_version:
+-        description: "Release version tag (e.g. v1.0.0). Leave empty for branch-name tag."
++        description: "Release version (e.g. v1.0.0) — required for Release builds"
+         type: string
+         default: ""
++      is_prerelease:
++        description: "Is this a pre-release?"
++        type: boolean
++        default: false
+ 
+ concurrency:
+   group: ${{ github.workflow }}-${{ github.ref }}
+@@ -22,24 +34,39 @@ jobs:
+     runs-on: ubuntu-22.04
+     outputs:
+       image_tag: ${{ steps.vars.outputs.image_tag }}
+-      stable_tag: ${{ steps.vars.outputs.stable_tag }}
++      is_release: ${{ steps.vars.outputs.is_release }}
++      is_prerelease: ${{ steps.vars.outputs.is_prerelease }}
+     steps:
+       - name: Set build variables
+         id: vars
+         run: |
+-          if [ -n "${{ github.event.inputs.release_version }}" ]; then
++          BUILD_TYPE="${{ github.event.inputs.build_type }}"
++          IS_PRERELEASE="${{ github.event.inputs.is_prerelease }}"
++
++          if [ "$BUILD_TYPE" == "Release" ]; then
+             REL_VERSION="${{ github.event.inputs.release_version }}"
++
++            if [ -z "$REL_VERSION" ]; then
++              echo "::error::Release version is required for Release builds"
++              exit 1
++            fi
++
+             semver_regex="^v([0-9]+)\.([0-9]+)\.([0-9]+)(-[a-zA-Z0-9]+(-[a-zA-Z0-9]+)*)?$"
+             if [[ ! ${REL_VERSION} =~ $semver_regex ]]; then
+-              echo "::error::Invalid version format: ${REL_VERSION}. Must be semver (e.g. v1.2.3)"
++              echo "::error::Invalid version format: ${REL_VERSION}. Must be semver (e.g. v1.2.3 or v1.2.3-alpha-1)"
+               exit 1
+             fi
++
+             echo "image_tag=${REL_VERSION}" >> "$GITHUB_OUTPUT"
+-            echo "stable_tag=true" >> "$GITHUB_OUTPUT"
++            echo "is_release=true" >> "$GITHUB_OUTPUT"
++            echo "is_prerelease=${IS_PRERELEASE}" >> "$GITHUB_OUTPUT"
++            echo "::notice::Release build: ${REL_VERSION} (prerelease: ${IS_PRERELEASE})"
+           else
+             TAG=$(echo "${{ github.ref_name }}" | sed 's/[^a-zA-Z0-9.-]//g')
+             echo "image_tag=${TAG}" >> "$GITHUB_OUTPUT"
+-            echo "stable_tag=false" >> "$GITHUB_OUTPUT"
++            echo "is_release=false" >> "$GITHUB_OUTPUT"
++            echo "is_prerelease=false" >> "$GITHUB_OUTPUT"
++            echo "::notice::Branch build: ${TAG}"
+           fi
+ 
+   build:
+@@ -75,17 +102,85 @@ jobs:
+         with:
+           username: ${{ secrets.DOCKERHUB_USERNAME }}
+           password: ${{ secrets.DOCKERHUB_TOKEN }}
++
++      - name: Compute tags
++        id: tags
++        run: |
++          ORG="${{ env.DOCKER_ORG }}"
++          IMAGE="${{ matrix.image }}"
++          TAG="${{ needs.setup.outputs.image_tag }}"
++          IS_RELEASE="${{ needs.setup.outputs.is_release }}"
++          IS_PRERELEASE="${{ needs.setup.outputs.is_prerelease }}"
++
++          TAGS="${ORG}/${IMAGE}:${TAG}"
++
++          if [ "$IS_RELEASE" == "true" ] && [ "$IS_PRERELEASE" != "true" ]; then
++            # Full release: version + stable
++            TAGS="${TAGS},${ORG}/${IMAGE}:stable"
++          elif [ "$IS_RELEASE" != "true" ] && [ "$TAG" == "main" ]; then
++            # Branch build from main: branch-name + latest
++            TAGS="${TAGS},${ORG}/${IMAGE}:latest"
++          fi
++          # Prerelease or non-main branch: version/branch tag only
++
++          echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
++
+       - uses: docker/build-push-action@v6
+         with:
+           context: ${{ matrix.context }}
+           file: ${{ matrix.dockerfile }}
+           push: true
+-          tags: |
+-            ${{ env.DOCKER_ORG }}/${{ matrix.image }}:${{ needs.setup.outputs.image_tag }}
+-            ${{ needs.setup.outputs.stable_tag == 'true' && format('{0}/{1}:stable', env.DOCKER_ORG, matrix.image) || format('{0}/{1}:latest', env.DOCKER_ORG, matrix.image) }}
++          tags: ${{ steps.tags.outputs.tags }}
+           cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache
+           cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache,mode=max
+ 
++  upload-assets:
++    name: Upload Deploy Assets
++    runs-on: ubuntu-22.04
++    needs: [setup, build]
++    steps:
++      - uses: actions/checkout@v6
++
++      - name: Prepare assets
++        run: |
++          mkdir -p deploy-assets
++          IMG_TAG="${{ needs.setup.outputs.image_tag }}"
++          cp deployments/infrawatch/install.sh deploy-assets/install.sh
++          sed "s/\${APP_RELEASE:-latest}/\${APP_RELEASE:-${IMG_TAG}}/g" \
++            deployments/infrawatch/docker-compose.yml > deploy-assets/docker-compose.yml
++          sed "s/^APP_RELEASE=latest/APP_RELEASE=${IMG_TAG}/g" \
++            deployments/infrawatch/variables.env > deploy-assets/variables.env
++
++      - name: Upload as workflow artifact
++        uses: actions/upload-artifact@v4
++        with:
++          name: plane-deploy-${{ needs.setup.outputs.image_tag }}
++          path: deploy-assets/
++
++  release:
++    name: Create Release
++    runs-on: ubuntu-22.04
++    if: needs.setup.outputs.is_release == 'true'
++    needs: [setup, upload-assets]
++    steps:
++      - name: Download deploy assets
++        uses: actions/download-artifact@v4
++        with:
++          name: plane-deploy-${{ needs.setup.outputs.image_tag }}
++          path: release-assets/
++
++      - name: Create GitHub Release
++        uses: softprops/action-gh-release@v2
++        with:
++          tag_name: ${{ needs.setup.outputs.image_tag }}
++          name: ${{ needs.setup.outputs.image_tag }}
++          prerelease: ${{ needs.setup.outputs.is_prerelease == 'true' }}
++          generate_release_notes: true
++          files: |
++            release-assets/install.sh
++            release-assets/docker-compose.yml
++            release-assets/variables.env
++
+   summary:
+     name: Build Summary
+     runs-on: ubuntu-22.04
+@@ -95,7 +190,9 @@ jobs:
+       - name: Summary
+         run: |
+           TAG="${{ needs.setup.outputs.image_tag }}"
+-          echo "## Build Complete" >> "$GITHUB_STEP_SUMMARY"
++          TYPE="${{ needs.setup.outputs.is_release == 'true' && 'Release' || 'Build' }}"
++          PRE="${{ needs.setup.outputs.is_prerelease == 'true' && ' (prerelease)' || '' }}"
++          echo "## ${TYPE} Complete${PRE}" >> "$GITHUB_STEP_SUMMARY"
+           echo "" >> "$GITHUB_STEP_SUMMARY"
+           echo "| Image | Tag |" >> "$GITHUB_STEP_SUMMARY"
+           echo "|-------|-----|" >> "$GITHUB_STEP_SUMMARY"
+diff --git a/deployments/infrawatch/docker-compose.yml b/deployments/infrawatch/docker-compose.yml
+new file mode 100644
+index 000000000..d2f70b0e6
+--- /dev/null
++++ b/deployments/infrawatch/docker-compose.yml
+@@ -0,0 +1,192 @@
++x-db-env: &db-env
++  PGHOST: ${PGHOST:-plane-db}
++  PGDATABASE: ${PGDATABASE:-plane}
++  POSTGRES_USER: ${POSTGRES_USER:-plane}
++  POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-plane}
++  POSTGRES_DB: ${POSTGRES_DB:-plane}
++  POSTGRES_PORT: ${POSTGRES_PORT:-5432}
++  PGDATA: /var/lib/postgresql/data
++
++x-redis-env: &redis-env
++  REDIS_HOST: ${REDIS_HOST:-plane-redis}
++  REDIS_PORT: ${REDIS_PORT:-6379}
++  REDIS_URL: ${REDIS_URL:-redis://plane-redis:6379/}
++
++x-minio-env: &minio-env
++  MINIO_ROOT_USER: ${AWS_ACCESS_KEY_ID:-access-key}
++  MINIO_ROOT_PASSWORD: ${AWS_SECRET_ACCESS_KEY:-secret-key}
++
++x-aws-s3-env: &aws-s3-env
++  AWS_REGION: ${AWS_REGION:-}
++  AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID:-access-key}
++  AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY:-secret-key}
++  AWS_S3_ENDPOINT_URL: ${AWS_S3_ENDPOINT_URL:-http://plane-minio:9000}
++  AWS_S3_BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-uploads}
++
++x-proxy-env: &proxy-env
++  APP_DOMAIN: ${APP_DOMAIN:-localhost}
++  FILE_SIZE_LIMIT: ${FILE_SIZE_LIMIT:-5242880}
++  CERT_EMAIL: ${CERT_EMAIL}
++  CERT_ACME_CA: ${CERT_ACME_CA}
++  CERT_ACME_DNS: ${CERT_ACME_DNS}
++  LISTEN_HTTP_PORT: ${LISTEN_HTTP_PORT:-80}
++  LISTEN_HTTPS_PORT: ${LISTEN_HTTPS_PORT:-443}
++  BUCKET_NAME: ${AWS_S3_BUCKET_NAME:-uploads}
++  SITE_ADDRESS: ${SITE_ADDRESS:-:80}
++
++x-mq-env: &mq-env
++  RABBITMQ_HOST: ${RABBITMQ_HOST:-plane-mq}
++  RABBITMQ_PORT: ${RABBITMQ_PORT:-5672}
++  RABBITMQ_DEFAULT_USER: ${RABBITMQ_USER:-plane}
++  RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD:-plane}
++  RABBITMQ_DEFAULT_VHOST: ${RABBITMQ_VHOST:-plane}
++  RABBITMQ_VHOST: ${RABBITMQ_VHOST:-plane}
++
++x-live-env: &live-env
++  API_BASE_URL: ${API_BASE_URL:-http://api:8000}
++  LIVE_SERVER_SECRET_KEY: ${LIVE_SERVER_SECRET_KEY:-2FiJk1U2aiVPEQtzLehYGlTSnTnrs7LW}
++
++x-app-env: &app-env
++  WEB_URL: ${WEB_URL:-http://localhost}
++  DEBUG: ${DEBUG:-0}
++  CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
++  GUNICORN_WORKERS: 1
++  USE_MINIO: ${USE_MINIO:-1}
++  DATABASE_URL: ${DATABASE_URL:-postgresql://plane:plane@plane-db/plane}
++  SECRET_KEY: ${SECRET_KEY:-60gp0byfz2dvffa45cxl20p1scy9xbpf6d8c5y0geejgkyp1b5}
++  AMQP_URL: ${AMQP_URL:-amqp://plane:plane@plane-mq:5672/plane}
++  API_KEY_RATE_LIMIT: ${API_KEY_RATE_LIMIT:-60/minute}
++  MINIO_ENDPOINT_SSL: ${MINIO_ENDPOINT_SSL:-0}
++  LIVE_SERVER_SECRET_KEY: ${LIVE_SERVER_SECRET_KEY:-2FiJk1U2aiVPEQtzLehYGlTSnTnrs7LW}
++
++services:
++  web:
++    image: infrawatchlabs/plane-web:${APP_RELEASE:-latest}
++    restart: unless-stopped
++    depends_on:
++      - api
++      - worker
++
++  space:
++    image: infrawatchlabs/plane-space:${APP_RELEASE:-latest}
++    restart: unless-stopped
++    depends_on:
++      - api
++      - worker
++      - web
++
++  admin:
++    image: infrawatchlabs/plane-admin:${APP_RELEASE:-latest}
++    restart: unless-stopped
++    depends_on:
++      - api
++      - web
++
++  live:
++    image: infrawatchlabs/plane-live:${APP_RELEASE:-latest}
++    environment:
++      <<: [*live-env, *redis-env]
++    restart: unless-stopped
++    depends_on:
++      - api
++      - web
++
++  api:
++    image: infrawatchlabs/plane-api:${APP_RELEASE:-latest}
++    command: ./bin/docker-entrypoint-api.sh
++    restart: unless-stopped
++    volumes:
++      - ./data/logs/api:/code/plane/logs
++    environment:
++      <<: [*app-env, *db-env, *redis-env, *minio-env, *aws-s3-env, *proxy-env]
++    depends_on:
++      - plane-db
++      - plane-redis
++      - plane-mq
++
++  worker:
++    image: infrawatchlabs/plane-api:${APP_RELEASE:-latest}
++    command: ./bin/docker-entrypoint-worker.sh
++    restart: unless-stopped
++    volumes:
++      - ./data/logs/worker:/code/plane/logs
++    environment:
++      <<: [*app-env, *db-env, *redis-env, *minio-env, *aws-s3-env, *proxy-env]
++    depends_on:
++      - api
++      - plane-db
++      - plane-redis
++      - plane-mq
++
++  beat-worker:
++    image: infrawatchlabs/plane-api:${APP_RELEASE:-latest}
++    command: ./bin/docker-entrypoint-beat.sh
++    restart: unless-stopped
++    volumes:
++      - ./data/logs/beat-worker:/code/plane/logs
++    environment:
++      <<: [*app-env, *db-env, *redis-env, *minio-env, *aws-s3-env, *proxy-env]
++    depends_on:
++      - api
++      - plane-db
++      - plane-redis
++      - plane-mq
++
++  migrator:
++    image: infrawatchlabs/plane-api:${APP_RELEASE:-latest}
++    command: ./bin/docker-entrypoint-migrator.sh
++    restart: "no"
++    volumes:
++      - ./data/logs/migrator:/code/plane/logs
++    environment:
++      <<: [*app-env, *db-env, *redis-env, *minio-env, *aws-s3-env, *proxy-env]
++    depends_on:
++      - plane-db
++      - plane-redis
++
++  plane-db:
++    image: postgres:15.7-alpine
++    command: postgres -c 'max_connections=1000'
++    restart: unless-stopped
++    environment:
++      <<: *db-env
++    volumes:
++      - ./data/postgres:/var/lib/postgresql/data
++
++  plane-redis:
++    image: valkey/valkey:7.2.11-alpine
++    restart: unless-stopped
++    volumes:
++      - ./data/redis:/data
++
++  plane-mq:
++    image: rabbitmq:3.13.6-management-alpine
++    restart: unless-stopped
++    environment:
++      <<: *mq-env
++    volumes:
++      - ./data/rabbitmq:/var/lib/rabbitmq
++
++  plane-minio:
++    image: minio/minio:latest
++    command: server /export --console-address ":9090"
++    restart: unless-stopped
++    environment:
++      <<: *minio-env
++    volumes:
++      - ./data/minio:/export
++
++  proxy:
++    image: infrawatchlabs/plane-proxy:${APP_RELEASE:-latest}
++    restart: unless-stopped
++    environment:
++      <<: *proxy-env
++    ports:
++      - "${LISTEN_HTTP_PORT:-80}:80"
++      - "${LISTEN_HTTPS_PORT:-443}:443"
++    depends_on:
++      - web
++      - api
++      - space
++      - admin
++      - live
+diff --git a/deployments/infrawatch/install.sh b/deployments/infrawatch/install.sh
+new file mode 100755
+index 000000000..b3ad93dc2
+--- /dev/null
++++ b/deployments/infrawatch/install.sh
+@@ -0,0 +1,277 @@
++#!/bin/bash
++set -e
++
++# InfraWatch Plane — Self-Hosted Installer
++# Usage: curl -sSL <release-url>/install.sh | bash
++#   or:  ./install.sh [install|start|stop|restart|upgrade|logs|backup]
++
++SCRIPT_DIR=$PWD
++INSTALL_DIR=$PWD/plane-app
++DOCKER_FILE_PATH=$INSTALL_DIR/docker-compose.yml
++DOCKER_ENV_PATH=$INSTALL_DIR/plane.env
++
++GH_REPO=infrawatchlabs/plane
++RELEASE_DOWNLOAD_URL="https://github.com/$GH_REPO/releases/download"
++FALLBACK_DOWNLOAD_URL="https://raw.githubusercontent.com/$GH_REPO/main/deployments/infrawatch"
++
++export APP_RELEASE=${APP_RELEASE:-latest}
++
++OS_NAME=$(uname)
++
++# ─── Docker Compose detection ──────────────────────────────────────────────
++
++if command -v docker-compose &> /dev/null; then
++    COMPOSE_CMD="docker-compose"
++else
++    COMPOSE_CMD="docker compose"
++fi
++
++# ─── Helpers ───────────────────────────────────────────────────────────────
++
++function print_header() {
++    clear
++    echo ""
++    echo "  ╦┌┐┌┌─┐┬─┐┌─┐╦ ╦┌─┐┌┬┐┌─┐┬ ┬  ╔═╗┬  ┌─┐┌┐┌┌─┐"
++    echo "  ║│││├┤ ├┬┘├─┤║║║├─┤ │ │  ├─┤  ╠═╝│  ├─┤│││├┤ "
++    echo "  ╩┘└┘└  ┴└─┴ ┴╚╩╝┴ ┴ ┴ └─┘┴ ┴  ╩  ┴─┘┴ ┴┘└┘└─┘"
++    echo ""
++}
++
++function getEnvValue() {
++    local key=$1 file=$2
++    [ -f "$file" ] && grep -q "^$key=" "$file" && grep "^$key=" "$file" | cut -d'=' -f2
++}
++
++function updateEnvFile() {
++    local key=$1 value=$2 file=$3
++    if grep -q "^$key=" "$file" 2>/dev/null; then
++        if [ "$OS_NAME" == "Darwin" ]; then
++            sed -i '' "s|^$key=.*|$key=$value|g" "$file"
++        else
++            sed -i "s|^$key=.*|$key=$value|g" "$file"
++        fi
++    else
++        echo "$key=$value" >> "$file"
++    fi
++}
++
++function checkLatestRelease() {
++    local latest=$(curl -sSL "https://api.github.com/repos/$GH_REPO/releases/latest" | grep -o '"tag_name": "[^"]*"' | sed 's/"tag_name": "//;s/"//g')
++    if [ -z "$latest" ]; then
++        echo "Failed to check latest release" >&2
++        exit 1
++    fi
++    echo "$latest"
++}
++
++function downloadFile() {
++    local filename=$1 dest=$2
++    local url="$RELEASE_DOWNLOAD_URL/$APP_RELEASE/$filename"
++
++    local response=$(curl -sSL -w "HTTPSTATUS:%{http_code}" "$url?$(date +%s)")
++    local body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
++    local status=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
++
++    if [ "$status" -eq 200 ]; then
++        echo "$body" > "$dest"
++        return 0
++    fi
++
++    # Fallback to raw GitHub
++    url="$FALLBACK_DOWNLOAD_URL/$filename"
++    response=$(curl -sSL -w "HTTPSTATUS:%{http_code}" "$url?$(date +%s)")
++    body=$(echo "$response" | sed -e 's/HTTPSTATUS\:.*//g')
++    status=$(echo "$response" | tr -d '\n' | sed -e 's/.*HTTPSTATUS://')
++
++    if [ "$status" -eq 200 ]; then
++        echo "$body" > "$dest"
++        return 0
++    fi
++
++    echo "Failed to download $filename (HTTP $status)" >&2
++    return 1
++}
++
++# ─── Core Functions ────────────────────────────────────────────────────────
++
++function install() {
++    echo "Installing InfraWatch Plane..."
++    echo ""
++
++    mkdir -p "$INSTALL_DIR/archive"
++    mkdir -p "$INSTALL_DIR/data"
++
++    # Archive existing files
++    local ts=$(date +%s)
++    [ -f "$DOCKER_FILE_PATH" ] && mv "$DOCKER_FILE_PATH" "$INSTALL_DIR/archive/$ts.docker-compose.yml"
++
++    # Download compose and env
++    downloadFile "docker-compose.yml" "$DOCKER_FILE_PATH" || exit 1
++    downloadFile "variables.env" "$INSTALL_DIR/variables-upgrade.env" || exit 1
++
++    # Backup and sync env
++    if [ -f "$DOCKER_ENV_PATH" ]; then
++        cp "$DOCKER_ENV_PATH" "$INSTALL_DIR/archive/$ts.env"
++        cp "$DOCKER_ENV_PATH" "$INSTALL_DIR/plane.env.bak"
++    fi
++
++    mv "$INSTALL_DIR/variables-upgrade.env" "$DOCKER_ENV_PATH"
++
++    # Restore user values from backup
++    if [ -f "$INSTALL_DIR/plane.env.bak" ]; then
++        while IFS= read -r line; do
++            [[ -z "$line" || "$line" == \#* ]] && continue
++            local key=$(echo "$line" | cut -d'=' -f1)
++            local value=$(getEnvValue "$key" "$INSTALL_DIR/plane.env.bak")
++            [ -n "$value" ] && updateEnvFile "$key" "$value" "$DOCKER_ENV_PATH"
++        done < "$DOCKER_ENV_PATH"
++    fi
++
++    updateEnvFile "APP_RELEASE" "$APP_RELEASE" "$DOCKER_ENV_PATH"
++
++    # Pull images
++    echo "Pulling images..."
++    $COMPOSE_CMD -f "$DOCKER_FILE_PATH" --env-file="$DOCKER_ENV_PATH" pull --quiet
++    echo ""
++    echo "Installation complete. Run './install.sh start' to start services."
++    echo ""
++}
++
++function startServices() {
++    echo "Starting InfraWatch Plane..."
++    $COMPOSE_CMD -f "$DOCKER_FILE_PATH" --env-file="$DOCKER_ENV_PATH" up -d --quiet-pull
++
++    # Wait for migrator
++    local migrator_id=$($COMPOSE_CMD -f "$DOCKER_FILE_PATH" ps -q migrator 2>/dev/null)
++    if [ -n "$migrator_id" ]; then
++        echo -n "  Waiting for database migration..."
++        while docker inspect --format='{{.State.Status}}' "$migrator_id" 2>/dev/null | grep -q "running"; do
++            echo -n "."
++            sleep 2
++        done
++        local exit_code=$(docker inspect --format='{{.State.ExitCode}}' "$migrator_id" 2>/dev/null)
++        if [ "$exit_code" -ne 0 ]; then
++            echo " FAILED"
++            echo "  Migration failed. Check logs: ./install.sh logs migrator"
++            exit 1
++        fi
++        echo " done"
++    fi
++
++    # Wait for API
++    local api_id=$($COMPOSE_CMD -f "$DOCKER_FILE_PATH" ps -q api 2>/dev/null)
++    if [ -n "$api_id" ]; then
++        echo -n "  Waiting for API..."
++        local elapsed=0
++        while ! docker exec "$api_id" python3 -c "import urllib.request; urllib.request.urlopen('http://localhost:8000/', timeout=3)" > /dev/null 2>&1; do
++            echo -n "."
++            sleep 2
++            elapsed=$((elapsed + 2))
++            if [ $elapsed -gt 120 ]; then
++                echo " timeout (API may still be starting)"
++                break
++            fi
++        done
++        [ $elapsed -le 120 ] && echo " ready"
++    fi
++
++    source "$DOCKER_ENV_PATH" 2>/dev/null
++    echo ""
++    echo "  InfraWatch Plane is running at ${WEB_URL:-http://localhost}"
++    echo ""
++}
++
++function stopServices() {
++    echo "Stopping services..."
++    $COMPOSE_CMD -f "$DOCKER_FILE_PATH" --env-file="$DOCKER_ENV_PATH" down
++}
++
++function restartServices() {
++    stopServices
++    startServices
++}
++
++function upgrade() {
++    local current=$APP_RELEASE
++    local latest=$(checkLatestRelease)
++
++    echo "Current: $current"
++    echo "Latest:  $latest"
++
++    if [ "$current" == "$latest" ]; then
++        echo "Already on latest version."
++        exit 0
++    fi
++
++    read -p "Upgrade to $latest? [y/N]: " confirm
++    [[ ! "$confirm" =~ ^[Yy]$ ]] && exit 0
++
++    export APP_RELEASE=$latest
++    stopServices
++    install
++    echo "Upgrade complete. Run './install.sh start' to start services."
++}
++
++function viewLogs() {
++    local service=$1
++    if [ -z "$service" ]; then
++        echo "Usage: ./install.sh logs <service>"
++        echo "Services: web, space, admin, live, api, worker, beat-worker, migrator, proxy, plane-db, plane-redis, plane-mq, plane-minio"
++        exit 1
++    fi
++    $COMPOSE_CMD -f "$DOCKER_FILE_PATH" --env-file="$DOCKER_ENV_PATH" logs -f "$service"
++}
++
++function backupData() {
++    local ts=$(date +"%Y%m%d-%H%M")
++    local backup_dir="$INSTALL_DIR/backup/$ts"
++    mkdir -p "$backup_dir"
++
++    echo "Backing up data to $backup_dir..."
++
++    for svc_dir in postgres redis rabbitmq minio; do
++        if [ -d "$INSTALL_DIR/data/$svc_dir" ]; then
++            echo "  Backing up $svc_dir..."
++            tar -czf "$backup_dir/$svc_dir.tar.gz" -C "$INSTALL_DIR/data" "$svc_dir"
++        fi
++    done
++
++    # Backup env
++    cp "$DOCKER_ENV_PATH" "$backup_dir/plane.env"
++
++    echo ""
++    echo "Backup complete: $backup_dir"
++}
++
++# ─── Main ──────────────────────────────────────────────────────────────────
++
++# Load existing config
++if [ -f "$DOCKER_ENV_PATH" ]; then
++    APP_RELEASE=$(getEnvValue "APP_RELEASE" "$DOCKER_ENV_PATH")
++    APP_RELEASE=${APP_RELEASE:-latest}
++fi
++
++print_header
++
++case "${1:-}" in
++    install)  install ;;
++    start)    startServices ;;
++    stop)     stopServices ;;
++    restart)  restartServices ;;
++    upgrade)  upgrade ;;
++    logs)     viewLogs "$2" ;;
++    backup)   backupData ;;
++    *)
++        echo "Usage: ./install.sh <command>"
++        echo ""
++        echo "Commands:"
++        echo "  install   Download and set up Plane"
++        echo "  start     Start all services"
++        echo "  stop      Stop all services"
++        echo "  restart   Restart all services"
++        echo "  upgrade   Upgrade to latest release"
++        echo "  logs      View logs (./install.sh logs <service>)"
++        echo "  backup    Backup data volumes"
++        echo ""
++        ;;
++esac
+diff --git a/deployments/infrawatch/variables.env b/deployments/infrawatch/variables.env
+new file mode 100644
+index 000000000..0e43cc4dc
+--- /dev/null
++++ b/deployments/infrawatch/variables.env
+@@ -0,0 +1,71 @@
++APP_DOMAIN=localhost
++APP_RELEASE=latest
++
++WEB_REPLICAS=1
++SPACE_REPLICAS=1
++ADMIN_REPLICAS=1
++API_REPLICAS=1
++WORKER_REPLICAS=1
++BEAT_WORKER_REPLICAS=1
++LIVE_REPLICAS=1
++
++LISTEN_HTTP_PORT=80
++LISTEN_HTTPS_PORT=443
++
++WEB_URL=http://${APP_DOMAIN}
++DEBUG=0
++CORS_ALLOWED_ORIGINS=http://${APP_DOMAIN}
++API_BASE_URL=http://api:8000
++
++# DB SETTINGS
++PGHOST=plane-db
++PGDATABASE=plane
++POSTGRES_USER=plane
++POSTGRES_PASSWORD=plane
++POSTGRES_DB=plane
++POSTGRES_PORT=5432
++DATABASE_URL=
++
++# REDIS SETTINGS
++REDIS_HOST=plane-redis
++REDIS_PORT=6379
++REDIS_URL=
++
++# RabbitMQ Settings
++RABBITMQ_HOST=plane-mq
++RABBITMQ_PORT=5672
++RABBITMQ_USER=plane
++RABBITMQ_PASSWORD=plane
++RABBITMQ_VHOST=plane
++AMQP_URL=
++
++# SSL — set CERT_EMAIL to enable automatic HTTPS
++CERT_ACME_CA=https://acme-v02.api.letsencrypt.org/directory
++TRUSTED_PROXIES=0.0.0.0/0
++SITE_ADDRESS=:80
++CERT_EMAIL=
++CERT_ACME_DNS=
++
++# Secret Key — CHANGE THIS IN PRODUCTION
++SECRET_KEY=60gp0byfz2dvffa45cxl20p1scy9xbpf6d8c5y0geejgkyp1b5
++
++# DATA STORE SETTINGS
++USE_MINIO=1
++AWS_REGION=
++AWS_ACCESS_KEY_ID=access-key
++AWS_SECRET_ACCESS_KEY=secret-key
++AWS_S3_ENDPOINT_URL=http://plane-minio:9000
++AWS_S3_BUCKET_NAME=uploads
++FILE_SIZE_LIMIT=5242880
++
++# Gunicorn Workers
++GUNICORN_WORKERS=1
++
++# Force HTTPS for handling SSL Termination
++MINIO_ENDPOINT_SSL=0
++
++# API key rate limit
++API_KEY_RATE_LIMIT=60/minute
++
++# Live server secret — CHANGE THIS IN PRODUCTION
++LIVE_SERVER_SECRET_KEY=
+-- 
+2.45.1
+
+
+From 2734b878aa4d08f6a729495b63a17599577ffe50 Mon Sep 17 00:00:00 2001
+From: "infrawatch-agent[bot]"
+ <269943525+infrawatch-agent[bot]@users.noreply.github.com>
+Date: Thu, 9 Apr 2026 09:17:40 +0530
+Subject: [PATCH 3/7] fix: add contents:write permission for GitHub release
+ creation (#3)
+
+Co-authored-by: Manish Gupta <manish@plane.so>
+---
+ .github/workflows/build-infrawatchlabs.yml | 3 +++
+ 1 file changed, 3 insertions(+)
+
+diff --git a/.github/workflows/build-infrawatchlabs.yml b/.github/workflows/build-infrawatchlabs.yml
+index 35041631a..10f5e55aa 100644
+--- a/.github/workflows/build-infrawatchlabs.yml
++++ b/.github/workflows/build-infrawatchlabs.yml
+@@ -20,6 +20,9 @@ on:
+         type: boolean
+         default: false
+ 
++permissions:
++  contents: write
++
+ concurrency:
+   group: ${{ github.workflow }}-${{ github.ref }}
+   cancel-in-progress: true
+-- 
+2.45.1
+
+
+From 4b91dff8f3fad288d5f7485202f47d38e1b06919 Mon Sep 17 00:00:00 2001
+From: "infrawatch-agent[bot]"
+ <269943525+infrawatch-agent[bot]@users.noreply.github.com>
+Date: Thu, 9 Apr 2026 09:29:19 +0530
+Subject: [PATCH 4/7] fix: install.sh respects APP_RELEASE from downloaded
+ variables.env (#4)
+
+Co-authored-by: Manish Gupta <manish@plane.so>
+---
+ deployments/infrawatch/install.sh | 33 ++++++++++++++++++++++++++-----
+ 1 file changed, 28 insertions(+), 5 deletions(-)
+
+diff --git a/deployments/infrawatch/install.sh b/deployments/infrawatch/install.sh
+index b3ad93dc2..af7a2265b 100755
+--- a/deployments/infrawatch/install.sh
++++ b/deployments/infrawatch/install.sh
+@@ -56,12 +56,21 @@ function updateEnvFile() {
+ }
+ 
+ function checkLatestRelease() {
++    # Try stable release first
+     local latest=$(curl -sSL "https://api.github.com/repos/$GH_REPO/releases/latest" | grep -o '"tag_name": "[^"]*"' | sed 's/"tag_name": "//;s/"//g')
+-    if [ -z "$latest" ]; then
+-        echo "Failed to check latest release" >&2
+-        exit 1
++    if [ -n "$latest" ]; then
++        echo "$latest"
++        return
++    fi
++    # Fall back to most recent release (including prereleases)
++    latest=$(curl -sSL "https://api.github.com/repos/$GH_REPO/releases" | grep -o '"tag_name": "[^"]*"' | head -1 | sed 's/"tag_name": "//;s/"//g')
++    if [ -n "$latest" ]; then
++        echo "No stable release found, using prerelease: $latest" >&2
++        echo "$latest"
++        return
+     fi
+-    echo "$latest"
++    echo "No releases found" >&2
++    exit 1
+ }
+ 
+ function downloadFile() {
+@@ -98,6 +107,14 @@ function install() {
+     echo "Installing InfraWatch Plane..."
+     echo ""
+ 
++    # Resolve "latest" to actual latest release version
++    if [ "$APP_RELEASE" == "latest" ]; then
++        echo "Checking for latest release..."
++        APP_RELEASE=$(checkLatestRelease)
++        echo "Latest release: $APP_RELEASE"
++        echo ""
++    fi
++
+     mkdir -p "$INSTALL_DIR/archive"
+     mkdir -p "$INSTALL_DIR/data"
+ 
+@@ -117,16 +134,22 @@ function install() {
+ 
+     mv "$INSTALL_DIR/variables-upgrade.env" "$DOCKER_ENV_PATH"
+ 
+-    # Restore user values from backup
++    # Restore user values from backup (except APP_RELEASE — use the downloaded version)
+     if [ -f "$INSTALL_DIR/plane.env.bak" ]; then
+         while IFS= read -r line; do
+             [[ -z "$line" || "$line" == \#* ]] && continue
+             local key=$(echo "$line" | cut -d'=' -f1)
++            [ "$key" == "APP_RELEASE" ] && continue
+             local value=$(getEnvValue "$key" "$INSTALL_DIR/plane.env.bak")
+             [ -n "$value" ] && updateEnvFile "$key" "$value" "$DOCKER_ENV_PATH"
+         done < "$DOCKER_ENV_PATH"
+     fi
+ 
++    # Use APP_RELEASE from downloaded env (stamped at build time), fallback to env var
++    local downloaded_release=$(getEnvValue "APP_RELEASE" "$DOCKER_ENV_PATH")
++    if [ -n "$downloaded_release" ] && [ "$downloaded_release" != "latest" ]; then
++        APP_RELEASE="$downloaded_release"
++    fi
+     updateEnvFile "APP_RELEASE" "$APP_RELEASE" "$DOCKER_ENV_PATH"
+ 
+     # Pull images
+-- 
+2.45.1
+
+
+From 6b883b7e959db1c7fcf78cc33ae37ec31e4984c5 Mon Sep 17 00:00:00 2001
+From: "infrawatch-agent[bot]"
+ <269943525+infrawatch-agent[bot]@users.noreply.github.com>
+Date: Thu, 9 Apr 2026 11:36:09 +0530
+Subject: [PATCH 5/7] feat: Pages & Estimates API key endpoints (#6)
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+* feat: add Pages and Estimates to API v1 (API key auth)
+
+Estimates:
+- Enable existing estimate endpoints in API v1 URL conf
+  (views already existed, just weren't imported)
+
+Pages (new plane/iw app):
+- Project Pages: list, create, retrieve, update, delete, description
+  GET/POST /api/v1/workspaces/{slug}/projects/{id}/pages/
+  GET/PATCH/DELETE /api/v1/workspaces/{slug}/projects/{id}/pages/{id}/
+  GET/PATCH /api/v1/workspaces/{slug}/projects/{id}/pages/{id}/description/
+
+- Workspace Pages: list, create, retrieve, update, delete, description
+  GET/POST /api/v1/workspaces/{slug}/pages/
+  GET/PATCH/DELETE /api/v1/workspaces/{slug}/pages/{id}/
+  GET/PATCH /api/v1/workspaces/{slug}/pages/{id}/description/
+
+All endpoints use APIKeyAuthentication (X-Api-Key header).
+Code isolated in plane/iw/ to minimize upstream merge conflicts.
+
+* fix: remove workspace pages — no CE frontend, will build separately
+
+---------
+
+Co-authored-by: Manish Gupta <manish@plane.so>
+---
+ apps/api/plane/api/urls/__init__.py |   2 +
+ apps/api/plane/iw/__init__.py       |   2 +
+ apps/api/plane/iw/apps.py           |   6 +
+ apps/api/plane/iw/urls.py           |  29 +++
+ apps/api/plane/iw/views/__init__.py |   5 +
+ apps/api/plane/iw/views/page.py     | 264 ++++++++++++++++++++++++++++
+ apps/api/plane/settings/common.py   |   1 +
+ apps/api/plane/urls.py              |   1 +
+ 8 files changed, 310 insertions(+)
+ create mode 100644 apps/api/plane/iw/__init__.py
+ create mode 100644 apps/api/plane/iw/apps.py
+ create mode 100644 apps/api/plane/iw/urls.py
+ create mode 100644 apps/api/plane/iw/views/__init__.py
+ create mode 100644 apps/api/plane/iw/views/page.py
+
+diff --git a/apps/api/plane/api/urls/__init__.py b/apps/api/plane/api/urls/__init__.py
+index 4a202431b..645dcfe66 100644
+--- a/apps/api/plane/api/urls/__init__.py
++++ b/apps/api/plane/api/urls/__init__.py
+@@ -14,10 +14,12 @@ from .user import urlpatterns as user_patterns
+ from .work_item import urlpatterns as work_item_patterns
+ from .invite import urlpatterns as invite_patterns
+ from .sticky import urlpatterns as sticky_patterns
++from .estimate import urlpatterns as estimate_patterns
+ 
+ urlpatterns = [
+     *asset_patterns,
+     *cycle_patterns,
++    *estimate_patterns,
+     *intake_patterns,
+     *label_patterns,
+     *member_patterns,
+diff --git a/apps/api/plane/iw/__init__.py b/apps/api/plane/iw/__init__.py
+new file mode 100644
+index 000000000..13a58f592
+--- /dev/null
++++ b/apps/api/plane/iw/__init__.py
+@@ -0,0 +1,2 @@
++# InfraWatch custom API extensions for Plane
++# Adds API key-authenticated endpoints for Pages and Workspace Pages
+diff --git a/apps/api/plane/iw/apps.py b/apps/api/plane/iw/apps.py
+new file mode 100644
+index 000000000..848b940d7
+--- /dev/null
++++ b/apps/api/plane/iw/apps.py
+@@ -0,0 +1,6 @@
++from django.apps import AppConfig
++
++
++class IwConfig(AppConfig):
++    name = "plane.iw"
++    verbose_name = "InfraWatch Extensions"
+diff --git a/apps/api/plane/iw/urls.py b/apps/api/plane/iw/urls.py
+new file mode 100644
+index 000000000..9bbb0a3dc
+--- /dev/null
++++ b/apps/api/plane/iw/urls.py
+@@ -0,0 +1,29 @@
++# InfraWatch — Custom API v1 endpoints
++# All endpoints use API key authentication (X-Api-Key header)
++
++from django.urls import path
++
++from .views import (
++    PageListCreateAPIEndpoint,
++    PageDetailAPIEndpoint,
++    PageDescriptionAPIEndpoint,
++)
++
++urlpatterns = [
++    # Project Pages
++    path(
++        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/",
++        PageListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
++        name="iw-project-pages",
++    ),
++    path(
++        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/",
++        PageDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
++        name="iw-project-page-detail",
++    ),
++    path(
++        "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/description/",
++        PageDescriptionAPIEndpoint.as_view(http_method_names=["get", "patch"]),
++        name="iw-project-page-description",
++    ),
++]
+diff --git a/apps/api/plane/iw/views/__init__.py b/apps/api/plane/iw/views/__init__.py
+new file mode 100644
+index 000000000..f06159e7b
+--- /dev/null
++++ b/apps/api/plane/iw/views/__init__.py
+@@ -0,0 +1,5 @@
++from .page import (
++    PageListCreateAPIEndpoint,
++    PageDetailAPIEndpoint,
++    PageDescriptionAPIEndpoint,
++)
+diff --git a/apps/api/plane/iw/views/page.py b/apps/api/plane/iw/views/page.py
+new file mode 100644
+index 000000000..14103082e
+--- /dev/null
++++ b/apps/api/plane/iw/views/page.py
+@@ -0,0 +1,264 @@
++# InfraWatch — Project Pages API (API key authenticated)
++# Exposes project pages under /api/v1/ with X-Api-Key auth
++
++import json
++from datetime import datetime
++
++from django.core.serializers.json import DjangoJSONEncoder
++from django.db.models import (
++    Exists,
++    OuterRef,
++    Q,
++    Value,
++    UUIDField,
++)
++from django.contrib.postgres.aggregates import ArrayAgg
++from django.contrib.postgres.fields import ArrayField
++from django.db.models.functions import Coalesce
++from django.http import StreamingHttpResponse
++
++from rest_framework import status
++from rest_framework.response import Response
++
++from plane.api.views.base import BaseAPIView
++from plane.app.serializers import (
++    PageSerializer,
++    PageDetailSerializer,
++    PageBinaryUpdateSerializer,
++)
++from plane.db.models import (
++    Page,
++    PageLog,
++    ProjectPage,
++    Project,
++    UserFavorite,
++    ProjectMember,
++)
++from plane.bgtasks.page_transaction_task import page_transaction
++from plane.bgtasks.page_version_task import track_page_version
++
++
++def _page_queryset(user, slug, project_id):
++    """Shared queryset for project pages."""
++    subquery = UserFavorite.objects.filter(
++        user=user,
++        entity_type="page",
++        entity_identifier=OuterRef("pk"),
++        workspace__slug=slug,
++    )
++    return (
++        Page.objects.filter(workspace__slug=slug)
++        .filter(
++            projects__id=project_id,
++            project_pages__deleted_at__isnull=True,
++        )
++        .filter(parent__isnull=True)
++        .filter(Q(owned_by=user) | Q(access=0))
++        .select_related("workspace", "owned_by")
++        .prefetch_related("projects", "labels")
++        .annotate(is_favorite=Exists(subquery))
++        .annotate(
++            label_ids=Coalesce(
++                ArrayAgg(
++                    "page_labels__label_id",
++                    distinct=True,
++                    filter=~Q(page_labels__label_id__isnull=True),
++                ),
++                Value([], output_field=ArrayField(UUIDField())),
++            ),
++            project_ids=Coalesce(
++                ArrayAgg("projects__id", distinct=True, filter=~Q(projects__id=True)),
++                Value([], output_field=ArrayField(UUIDField())),
++            ),
++        )
++        .order_by("-is_favorite", "-created_at")
++        .distinct()
++    )
++
++
++class PageListCreateAPIEndpoint(BaseAPIView):
++    """List and create project pages via API key."""
++
++    def get(self, request, slug, project_id):
++        queryset = _page_queryset(request.user, slug, project_id)
++        serializer = PageSerializer(queryset, many=True)
++        return Response(serializer.data, status=status.HTTP_200_OK)
++
++    def post(self, request, slug, project_id):
++        serializer = PageSerializer(
++            data=request.data,
++            context={
++                "project_id": project_id,
++                "owned_by_id": request.user.id,
++                "description_json": request.data.get("description_json", {}),
++                "description_binary": request.data.get("description_binary", None),
++                "description_html": request.data.get("description_html", "<p></p>"),
++            },
++        )
++        if serializer.is_valid():
++            serializer.save()
++            page_transaction.delay(
++                new_description_html=request.data.get("description_html", "<p></p>"),
++                old_description_html=None,
++                page_id=serializer.data["id"],
++            )
++            page = _page_queryset(request.user, slug, project_id).filter(pk=serializer.data["id"]).first()
++            return Response(PageDetailSerializer(page).data, status=status.HTTP_201_CREATED)
++        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
++
++
++class PageDetailAPIEndpoint(BaseAPIView):
++    """Retrieve, update, and delete a project page via API key."""
++
++    def get(self, request, slug, project_id, page_id):
++        page = _page_queryset(request.user, slug, project_id).filter(pk=page_id).first()
++        if page is None:
++            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
++
++        issue_ids = PageLog.objects.filter(
++            page_id=page_id, entity_name="issue"
++        ).values_list("entity_identifier", flat=True)
++
++        data = PageDetailSerializer(page).data
++        data["issue_ids"] = issue_ids
++        return Response(data, status=status.HTTP_200_OK)
++
++    def patch(self, request, slug, project_id, page_id):
++        try:
++            page = Page.objects.get(
++                pk=page_id,
++                workspace__slug=slug,
++                projects__id=project_id,
++                project_pages__deleted_at__isnull=True,
++            )
++        except Page.DoesNotExist:
++            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
++
++        if page.is_locked:
++            return Response({"error": "Page is locked"}, status=status.HTTP_400_BAD_REQUEST)
++
++        if page.access != request.data.get("access", page.access) and page.owned_by_id != request.user.id:
++            return Response(
++                {"error": "Access cannot be updated since this page is owned by someone else"},
++                status=status.HTTP_400_BAD_REQUEST,
++            )
++
++        page_description = page.description_html
++        serializer = PageDetailSerializer(page, data=request.data, partial=True)
++        if serializer.is_valid():
++            serializer.save()
++            if request.data.get("description_html"):
++                page_transaction.delay(
++                    new_description_html=request.data.get("description_html", "<p></p>"),
++                    old_description_html=page_description,
++                    page_id=page_id,
++                )
++            return Response(serializer.data, status=status.HTTP_200_OK)
++        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
++
++    def delete(self, request, slug, project_id, page_id):
++        try:
++            page = Page.objects.get(
++                pk=page_id,
++                workspace__slug=slug,
++                projects__id=project_id,
++                project_pages__deleted_at__isnull=True,
++            )
++        except Page.DoesNotExist:
++            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
++
++        if page.archived_at is None:
++            return Response(
++                {"error": "The page should be archived before deleting"},
++                status=status.HTTP_400_BAD_REQUEST,
++            )
++
++        if page.owned_by_id != request.user.id and not ProjectMember.objects.filter(
++            workspace__slug=slug,
++            member=request.user,
++            role=20,
++            project_id=project_id,
++            is_active=True,
++        ).exists():
++            return Response(
++                {"error": "Only admin or owner can delete the page"},
++                status=status.HTTP_403_FORBIDDEN,
++            )
++
++        Page.objects.filter(
++            parent_id=page_id,
++            projects__id=project_id,
++            workspace__slug=slug,
++            project_pages__deleted_at__isnull=True,
++        ).update(parent=None)
++
++        page.delete()
++        return Response(status=status.HTTP_204_NO_CONTENT)
++
++
++class PageDescriptionAPIEndpoint(BaseAPIView):
++    """Get and update page description via API key."""
++
++    def get(self, request, slug, project_id, page_id):
++        try:
++            page = Page.objects.get(
++                Q(owned_by=request.user) | Q(access=0),
++                pk=page_id,
++                workspace__slug=slug,
++                projects__id=project_id,
++                project_pages__deleted_at__isnull=True,
++            )
++        except Page.DoesNotExist:
++            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
++
++        binary_data = page.description_binary
++
++        def stream_data():
++            if binary_data:
++                yield binary_data
++            else:
++                yield b""
++
++        response = StreamingHttpResponse(stream_data(), content_type="application/octet-stream")
++        response["Content-Disposition"] = 'attachment; filename="page_description.bin"'
++        return response
++
++    def patch(self, request, slug, project_id, page_id):
++        try:
++            page = Page.objects.get(
++                Q(owned_by=request.user) | Q(access=0),
++                pk=page_id,
++                workspace__slug=slug,
++                projects__id=project_id,
++                project_pages__deleted_at__isnull=True,
++            )
++        except Page.DoesNotExist:
++            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
++
++        if page.is_locked:
++            return Response({"error": "Page is locked"}, status=status.HTTP_400_BAD_REQUEST)
++
++        if page.archived_at:
++            return Response({"error": "Page is archived"}, status=status.HTTP_400_BAD_REQUEST)
++
++        old_description_html = page.description_html
++        existing_instance = json.dumps(
++            {"description_html": old_description_html}, cls=DjangoJSONEncoder
++        )
++
++        serializer = PageBinaryUpdateSerializer(page, data=request.data, partial=True)
++        if serializer.is_valid():
++            serializer.save()
++            if request.data.get("description_html"):
++                page_transaction.delay(
++                    new_description_html=request.data.get("description_html", "<p></p>"),
++                    old_description_html=old_description_html,
++                    page_id=page_id,
++                )
++            track_page_version.delay(
++                page_id=page_id,
++                existing_instance=existing_instance,
++                user_id=request.user.id,
++            )
++            return Response({"message": "Updated successfully"})
++        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+diff --git a/apps/api/plane/settings/common.py b/apps/api/plane/settings/common.py
+index 9d651bd1b..ea85bb1da 100644
+--- a/apps/api/plane/settings/common.py
++++ b/apps/api/plane/settings/common.py
+@@ -52,6 +52,7 @@ INSTALLED_APPS = [
+     "plane.middleware",
+     "plane.license",
+     "plane.api",
++    "plane.iw",
+     "plane.authentication",
+     # Third-party things
+     "rest_framework",
+diff --git a/apps/api/plane/urls.py b/apps/api/plane/urls.py
+index f5e43408c..7a0af0fcd 100644
+--- a/apps/api/plane/urls.py
++++ b/apps/api/plane/urls.py
+@@ -19,6 +19,7 @@ urlpatterns = [
+     path("api/public/", include("plane.space.urls")),
+     path("api/instances/", include("plane.license.urls")),
+     path("api/v1/", include("plane.api.urls")),
++    path("api/v1/", include("plane.iw.urls")),
+     path("auth/", include("plane.authentication.urls")),
+     path("", include("plane.web.urls")),
+ ]
+-- 
+2.45.1
+
+
+From 800b691c74f255f084880749dc5f116490786843 Mon Sep 17 00:00:00 2001
+From: "infrawatch-agent[bot]"
+ <269943525+infrawatch-agent[bot]@users.noreply.github.com>
+Date: Thu, 9 Apr 2026 11:44:04 +0530
+Subject: [PATCH 6/7] feat: stamp package.json version from build tag before
+ Docker build (#7)
+
+Co-authored-by: Manish Gupta <manish@plane.so>
+---
+ .github/workflows/build-infrawatchlabs.yml | 11 +++++++++++
+ 1 file changed, 11 insertions(+)
+
+diff --git a/.github/workflows/build-infrawatchlabs.yml b/.github/workflows/build-infrawatchlabs.yml
+index 10f5e55aa..39f41ba2c 100644
+--- a/.github/workflows/build-infrawatchlabs.yml
++++ b/.github/workflows/build-infrawatchlabs.yml
+@@ -100,6 +100,17 @@ jobs:
+             dockerfile: ./apps/proxy/Dockerfile.ce
+     steps:
+       - uses: actions/checkout@v6
++
++      - name: Stamp version in package.json
++        run: |
++          TAG="${{ needs.setup.outputs.image_tag }}"
++          # Update root and app package.json versions
++          for f in package.json apps/web/package.json apps/admin/package.json apps/space/package.json; do
++            if [ -f "$f" ]; then
++              sed -i "s/\"version\": \"[^\"]*\"/\"version\": \"${TAG}\"/" "$f"
++            fi
++          done
++
+       - uses: docker/setup-buildx-action@v4
+       - uses: docker/login-action@v4
+         with:
+-- 
+2.45.1
+
+
+From fd8cdb32300e2eb9c428699d5479b05527e34bce Mon Sep 17 00:00:00 2001
+From: "infrawatch-agent[bot]"
+ <269943525+infrawatch-agent[bot]@users.noreply.github.com>
+Date: Thu, 9 Apr 2026 14:10:02 +0530
+Subject: [PATCH 7/7] fix: rebrand version check and GitHub links to
+ infrawatchlabs (#8)
+
+* feat: stamp package.json version from build tag before Docker build
+
+* fix: point version check and GitHub links to infrawatchlabs/plane
+
+The instance registration was checking makeplane/plane for latest
+version and all GitHub links (report bug, star us) pointed to
+upstream. Rebranded to our fork.
+
+---------
+
+Co-authored-by: Manish Gupta <manish@plane.so>
+Co-authored-by: MG <mg@infrawatchlabs.com>
+---
+ apps/admin/app/(all)/(dashboard)/sidebar-help-section.tsx       | 2 +-
+ apps/api/plane/license/management/commands/register_instance.py | 2 +-
+ apps/web/app/(all)/[workspaceSlug]/(projects)/star-us-link.tsx  | 2 +-
+ apps/web/app/(all)/workspace-invitations/page.tsx               | 2 +-
+ apps/web/core/components/power-k/config/help-commands.ts        | 2 +-
+ 5 files changed, 5 insertions(+), 5 deletions(-)
+
+diff --git a/apps/admin/app/(all)/(dashboard)/sidebar-help-section.tsx b/apps/admin/app/(all)/(dashboard)/sidebar-help-section.tsx
+index 51401f312..88c83a88a 100644
+--- a/apps/admin/app/(all)/(dashboard)/sidebar-help-section.tsx
++++ b/apps/admin/app/(all)/(dashboard)/sidebar-help-section.tsx
+@@ -31,7 +31,7 @@ const helpOptions = [
+   },
+   {
+     name: "Report a bug",
+-    href: "https://github.com/makeplane/plane/issues/new/choose",
++    href: "https://github.com/infrawatchlabs/plane/issues/new/choose",
+     Icon: GithubIcon,
+   },
+ ];
+diff --git a/apps/api/plane/license/management/commands/register_instance.py b/apps/api/plane/license/management/commands/register_instance.py
+index 5ad6f7d20..4a3c3641a 100644
+--- a/apps/api/plane/license/management/commands/register_instance.py
++++ b/apps/api/plane/license/management/commands/register_instance.py
+@@ -40,7 +40,7 @@ class Command(BaseCommand):
+     def check_for_latest_version(self, fallback_version):
+         try:
+             response = requests.get(
+-                "https://api.github.com/repos/makeplane/plane/releases/latest",
++                "https://api.github.com/repos/infrawatchlabs/plane/releases/latest",
+                 timeout=10,
+             )
+             response.raise_for_status()
+diff --git a/apps/web/app/(all)/[workspaceSlug]/(projects)/star-us-link.tsx b/apps/web/app/(all)/[workspaceSlug]/(projects)/star-us-link.tsx
+index c4039f7ab..44d7ad7d9 100644
+--- a/apps/web/app/(all)/[workspaceSlug]/(projects)/star-us-link.tsx
++++ b/apps/web/app/(all)/[workspaceSlug]/(projects)/star-us-link.tsx
+@@ -22,7 +22,7 @@ export function StarUsOnGitHubLink() {
+     <a
+       aria-label={t("home.star_us_on_github")}
+       className="flex flex-shrink-0 items-center gap-1.5 rounded-sm bg-layer-2 px-3 py-1.5"
+-      href="https://github.com/makeplane/plane"
++      href="https://github.com/infrawatchlabs/plane"
+       target="_blank"
+       rel="noopener noreferrer"
+     >
+diff --git a/apps/web/app/(all)/workspace-invitations/page.tsx b/apps/web/app/(all)/workspace-invitations/page.tsx
+index 4ab9b02eb..8788f4188 100644
+--- a/apps/web/app/(all)/workspace-invitations/page.tsx
++++ b/apps/web/app/(all)/workspace-invitations/page.tsx
+@@ -111,7 +111,7 @@ function WorkspaceInvitationPage() {
+               ) : (
+                 <EmptySpaceItem Icon={Boxes} title="Continue to home" href="/" />
+               )}
+-              <EmptySpaceItem Icon={Star} title="Star us on GitHub" href="https://github.com/makeplane" />
++              <EmptySpaceItem Icon={Star} title="Star us on GitHub" href="https://github.com/infrawatchlabs/plane" />
+               <EmptySpaceItem
+                 Icon={Share2}
+                 title="Join our community of active creators"
+diff --git a/apps/web/core/components/power-k/config/help-commands.ts b/apps/web/core/components/power-k/config/help-commands.ts
+index 0543e6698..0291024f1 100644
+--- a/apps/web/core/components/power-k/config/help-commands.ts
++++ b/apps/web/core/components/power-k/config/help-commands.ts
+@@ -65,7 +65,7 @@ export const usePowerKHelpCommands = (): TPowerKCommandConfig[] => {
+       i18n_title: "power_k.help_actions.report_bug",
+       icon: GithubIcon,
+       action: () => {
+-        window.open("https://github.com/makeplane/plane/issues/new/choose", "_blank", "noopener,noreferrer");
++        window.open("https://github.com/infrawatchlabs/plane/issues/new/choose", "_blank", "noopener,noreferrer");
+       },
+       isEnabled: () => true,
+       isVisible: () => true,
+-- 
+2.45.1
+
