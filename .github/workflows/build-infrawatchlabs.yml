@@ -134,23 +134,40 @@ jobs:
           cache-from: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache
           cache-to: type=registry,ref=${{ env.DOCKER_ORG }}/${{ matrix.image }}:buildcache,mode=max
 
-  release:
-    name: Create Release
+  upload-assets:
+    name: Upload Deploy Assets
     runs-on: ubuntu-22.04
-    if: needs.setup.outputs.is_release == 'true'
     needs: [setup, build]
     steps:
       - uses: actions/checkout@v6
 
-      - name: Prepare release assets
+      - name: Prepare assets
         run: |
-          mkdir -p release-assets
-          REL_VERSION="${{ needs.setup.outputs.image_tag }}"
-          cp deployments/infrawatch/install.sh release-assets/install.sh
-          sed "s/\${APP_RELEASE:-latest}/\${APP_RELEASE:-${REL_VERSION}}/g" \
-            deployments/infrawatch/docker-compose.yml > release-assets/docker-compose.yml
-          sed "s/^APP_RELEASE=latest/APP_RELEASE=${REL_VERSION}/g" \
-            deployments/infrawatch/variables.env > release-assets/variables.env
+          mkdir -p deploy-assets
+          IMG_TAG="${{ needs.setup.outputs.image_tag }}"
+          cp deployments/infrawatch/install.sh deploy-assets/install.sh
+          sed "s/\${APP_RELEASE:-latest}/\${APP_RELEASE:-${IMG_TAG}}/g" \
+            deployments/infrawatch/docker-compose.yml > deploy-assets/docker-compose.yml
+          sed "s/^APP_RELEASE=latest/APP_RELEASE=${IMG_TAG}/g" \
+            deployments/infrawatch/variables.env > deploy-assets/variables.env
+
+      - name: Upload as workflow artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: plane-deploy-${{ needs.setup.outputs.image_tag }}
+          path: deploy-assets/
+
+  release:
+    name: Create Release
+    runs-on: ubuntu-22.04
+    if: needs.setup.outputs.is_release == 'true'
+    needs: [setup, upload-assets]
+    steps:
+      - name: Download deploy assets
+        uses: actions/download-artifact@v4
+        with:
+          name: plane-deploy-${{ needs.setup.outputs.image_tag }}
+          path: release-assets/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
