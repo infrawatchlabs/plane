@@ -30,11 +30,22 @@ fi
 
 function print_header() {
     clear
-    echo ""
-    echo "  ╦┌┐┌┌─┐┬─┐┌─┐╦ ╦┌─┐┌┬┐┌─┐┬ ┬  ╔═╗┬  ┌─┐┌┐┌┌─┐"
-    echo "  ║│││├┤ ├┬┘├─┤║║║├─┤ │ │  ├─┤  ╠═╝│  ├─┤│││├┤ "
-    echo "  ╩┘└┘└  ┴└─┴ ┴╚╩╝┴ ┴ ┴ └─┘┴ ┴  ╩  ┴─┘┴ ┴┘└┘└─┘"
-    echo ""
+    cat <<'LOGO'
+
+       ╱╲
+      ╱  ╲        ___        __          __        __       __
+     ╱ ╱╲ ╲      |   | ___  |  |_  ___  |  | ___  |  |_   |  |__
+    ╱ ╱  ╲ ╲     |   ||   | |   _||  _| |  ||   | |   _|  |   __|
+   ╱ ╱   ╱ ╱     |   ||   | |  |  |  |  |  ||  |  |  |  __|  |
+  ╱ ╱   ╱ ╱      |___||_|_| |__|  |_|   |__||__|  |__| |__||__|
+ ╱ ╱  ╱╱ ╱
+╱ ╱  ╱  ╱         ____  _
+ ╲ ╲╱  ╱          |  _ \| | __ _ _ __   ___
+  ╲   ╱           | |_) | |/ _` | '_ \ / _ \
+   ╲ ╱            |  __/| | (_| | | | |  __/
+    ╲╱             |_|   |_|\__,_|_| |_|\___|
+
+LOGO
 }
 
 function getEnvValue() {
@@ -56,12 +67,21 @@ function updateEnvFile() {
 }
 
 function checkLatestRelease() {
+    # Try stable release first
     local latest=$(curl -sSL "https://api.github.com/repos/$GH_REPO/releases/latest" | grep -o '"tag_name": "[^"]*"' | sed 's/"tag_name": "//;s/"//g')
-    if [ -z "$latest" ]; then
-        echo "Failed to check latest release" >&2
-        exit 1
+    if [ -n "$latest" ]; then
+        echo "$latest"
+        return
     fi
-    echo "$latest"
+    # Fall back to most recent release (including prereleases)
+    latest=$(curl -sSL "https://api.github.com/repos/$GH_REPO/releases" | grep -o '"tag_name": "[^"]*"' | head -1 | sed 's/"tag_name": "//;s/"//g')
+    if [ -n "$latest" ]; then
+        echo "No stable release found, using prerelease: $latest" >&2
+        echo "$latest"
+        return
+    fi
+    echo "No releases found" >&2
+    exit 1
 }
 
 function downloadFile() {
@@ -98,6 +118,14 @@ function install() {
     echo "Installing InfraWatch Plane..."
     echo ""
 
+    # Resolve "latest" to actual latest release version
+    if [ "$APP_RELEASE" == "latest" ]; then
+        echo "Checking for latest release..."
+        APP_RELEASE=$(checkLatestRelease)
+        echo "Latest release: $APP_RELEASE"
+        echo ""
+    fi
+
     mkdir -p "$INSTALL_DIR/archive"
     mkdir -p "$INSTALL_DIR/data"
 
@@ -117,16 +145,22 @@ function install() {
 
     mv "$INSTALL_DIR/variables-upgrade.env" "$DOCKER_ENV_PATH"
 
-    # Restore user values from backup
+    # Restore user values from backup (except APP_RELEASE — use the downloaded version)
     if [ -f "$INSTALL_DIR/plane.env.bak" ]; then
         while IFS= read -r line; do
             [[ -z "$line" || "$line" == \#* ]] && continue
             local key=$(echo "$line" | cut -d'=' -f1)
+            [ "$key" == "APP_RELEASE" ] && continue
             local value=$(getEnvValue "$key" "$INSTALL_DIR/plane.env.bak")
             [ -n "$value" ] && updateEnvFile "$key" "$value" "$DOCKER_ENV_PATH"
         done < "$DOCKER_ENV_PATH"
     fi
 
+    # Use APP_RELEASE from downloaded env (stamped at build time), fallback to env var
+    local downloaded_release=$(getEnvValue "APP_RELEASE" "$DOCKER_ENV_PATH")
+    if [ -n "$downloaded_release" ] && [ "$downloaded_release" != "latest" ]; then
+        APP_RELEASE="$downloaded_release"
+    fi
     updateEnvFile "APP_RELEASE" "$APP_RELEASE" "$DOCKER_ENV_PATH"
 
     # Pull images
