@@ -117,11 +117,11 @@ jobs:
           if [ "$IS_RELEASE" == "true" ] && [ "$IS_PRERELEASE" != "true" ]; then
             # Full release: version + stable
             TAGS="${TAGS},${ORG}/${IMAGE}:stable"
-          elif [ "$IS_RELEASE" != "true" ]; then
-            # Branch build: branch-name + latest
+          elif [ "$IS_RELEASE" != "true" ] && [ "$TAG" == "main" ]; then
+            # Branch build from main: branch-name + latest
             TAGS="${TAGS},${ORG}/${IMAGE}:latest"
           fi
-          # Prerelease: version tag only (no stable, no latest)
+          # Prerelease or non-main branch: version/branch tag only
 
           echo "tags=${TAGS}" >> "$GITHUB_OUTPUT"
 
