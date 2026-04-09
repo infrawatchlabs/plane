@@ -246,10 +246,17 @@ class PageDescriptionAPIEndpoint(BaseAPIView):
             {"description_html": old_description_html}, cls=DjangoJSONEncoder
         )
 
-        serializer = PageBinaryUpdateSerializer(page, data=request.data, partial=True)
+        # When only HTML is provided (API usage), clear binary and json
+        # so the editor falls back to HTML instead of showing stale binary
+        data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
+        if "description_html" in data and "description_binary" not in data:
+            page.description_binary = None
+            page.description_json = {}
+
+        serializer = PageBinaryUpdateSerializer(page, data=data, partial=True)
         if serializer.is_valid():
             serializer.save()
-            if request.data.get("description_html"):
+            if data.get("description_html"):
                 page_transaction.delay(
                     new_description_html=request.data.get("description_html", "<p></p>"),
                     old_description_html=old_description_html,
