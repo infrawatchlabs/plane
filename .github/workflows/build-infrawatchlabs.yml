@@ -99,10 +99,11 @@ jobs:
           mkdir -p release-assets
           REL_VERSION="${{ needs.setup.outputs.image_tag }}"
           cp deployments/infrawatch/install.sh release-assets/install.sh
-          cp deployments/infrawatch/variables.env release-assets/variables.env
-          # Stamp the release version into docker-compose
+          # Stamp the release version into docker-compose and variables.env
           sed "s/\${APP_RELEASE:-latest}/\${APP_RELEASE:-${REL_VERSION}}/g" \
             deployments/infrawatch/docker-compose.yml > release-assets/docker-compose.yml
+          sed "s/^APP_RELEASE=latest/APP_RELEASE=${REL_VERSION}/g" \
+            deployments/infrawatch/variables.env > release-assets/variables.env
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
