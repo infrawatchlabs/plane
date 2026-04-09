@@ -65,7 +65,7 @@ export const usePowerKHelpCommands = (): TPowerKCommandConfig[] => {
       i18n_title: "power_k.help_actions.report_bug",
       icon: GithubIcon,
       action: () => {
-        window.open("https://github.com/makeplane/plane/issues/new/choose", "_blank", "noopener,noreferrer");
+        window.open("https://github.com/infrawatchlabs/plane/issues/new/choose", "_blank", "noopener,noreferrer");
       },
       isEnabled: () => true,
       isVisible: () => true,
