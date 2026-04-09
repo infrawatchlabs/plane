@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     "plane.middleware",
     "plane.license",
     "plane.api",
+    "plane.iw",
     "plane.authentication",
     # Third-party things
     "rest_framework",
