@@ -3,8 +3,3 @@ from .page import (
     PageDetailAPIEndpoint,
     PageDescriptionAPIEndpoint,
 )
-from .workspace_page import (
-    WorkspacePageListCreateAPIEndpoint,
-    WorkspacePageDetailAPIEndpoint,
-    WorkspacePageDescriptionAPIEndpoint,
-)
