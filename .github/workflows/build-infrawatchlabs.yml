@@ -82,13 +82,13 @@ jobs:
         include:
           - image: plane-web
             context: .
-            dockerfile: ./apps/web/Dockerfile.web
+            dockerfile: ./apps/web/Dockerfile.iw-web
           - image: plane-space
             context: .
-            dockerfile: ./apps/space/Dockerfile.space
+            dockerfile: ./apps/space/Dockerfile.iw-space
           - image: plane-admin
             context: .
-            dockerfile: ./apps/admin/Dockerfile.admin
+            dockerfile: ./apps/admin/Dockerfile.iw-admin
           - image: plane-live
             context: .
             dockerfile: ./apps/live/Dockerfile.live
