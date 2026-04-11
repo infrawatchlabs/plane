@@ -847,4 +847,120 @@ class WorkspacePageViewSet(BaseViewSet):
             entity_name="page",
         ).delete(soft=False)
 
+    # ── Description (binary) ────────────────────────────────
+    def description_retrieve(self, request, slug, page_id):
+        page = Page.objects.get(
+            Q(owned_by=self.request.user) | Q(access=0),
+            pk=page_id,
+            workspace__slug=slug,
+            is_global=True,
+        )
+        binary_data = page.description_binary
+
+        def stream_data():
+            if binary_data:
+                yield binary_data
+            else:
+                yield b""
+
+        response = StreamingHttpResponse(
+            stream_data(), content_type="application/octet-stream"
+        )
+        response["Content-Disposition"] = (
+            'attachment; filename="page_description.bin"'
+        )
+        return response
+
+    def description_partial_update(self, request, slug, page_id):
+        page = Page.objects.get(
+            Q(owned_by=self.request.user) | Q(access=0),
+            pk=page_id,
+            workspace__slug=slug,
+            is_global=True,
+        )
+
+        if page.is_locked:
+            return Response(
+                {"error_code": ERROR_CODES["PAGE_LOCKED"], "error_message": "PAGE_LOCKED"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if page.archived_at:
+            return Response(
+                {"error_code": ERROR_CODES["PAGE_ARCHIVED"], "error_message": "PAGE_ARCHIVED"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        old_description_html = page.description_html
+        existing_instance = json.dumps(
+            {"description_html": old_description_html}, cls=DjangoJSONEncoder
+        )
+
+        serializer = PageBinaryUpdateSerializer(page, data=request.data, partial=True)
+        if serializer.is_valid():
+            serializer.save()
+            if request.data.get("description_html"):
+                page_transaction.delay(
+                    new_description_html=request.data.get("description_html", "<p></p>"),
+                    old_description_html=old_description_html,
+                    page_id=page_id,
+                )
+            track_page_version.delay(
+                page_id=page_id,
+                existing_instance=existing_instance,
+                user_id=request.user.id,
+            )
+            return Response({"message": "Updated successfully"})
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+    # ── Lock / Unlock ───────────────────────────────────────
+    def lock(self, request, slug, page_id):
+        page = Page.objects.get(
+            pk=page_id, workspace__slug=slug, is_global=True
+        )
+        page.is_locked = True
+        page.save(update_fields=["is_locked"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def unlock(self, request, slug, page_id):
+        page = Page.objects.get(
+            pk=page_id, workspace__slug=slug, is_global=True
+        )
+        page.is_locked = False
+        page.save(update_fields=["is_locked"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ── Archive / Restore ───────────────────────────────────
+    def archive(self, request, slug, page_id):
+        page = Page.objects.get(
+            pk=page_id, workspace__slug=slug, is_global=True
+        )
+        page.archived_at = datetime.now()
+        page.save(update_fields=["archived_at"])
+        return Response(
+            {"archived_at": str(page.archived_at)},
+            status=status.HTTP_200_OK,
+        )
+
+    def unarchive(self, request, slug, page_id):
+        page = Page.objects.get(
+            pk=page_id, workspace__slug=slug, is_global=True
+        )
+        page.archived_at = None
+        page.save(update_fields=["archived_at"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    # ── Access ──────────────────────────────────────────────
+    def access(self, request, slug, page_id):
+        page = Page.objects.get(
+            pk=page_id, workspace__slug=slug, is_global=True
+        )
+        if page.owned_by_id != request.user.id:
+            return Response(
+                {"error": "Only the owner can change access"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        page.access = request.data.get("access", 0)
+        page.save(update_fields=["access"])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
         return Response(status=status.HTTP_204_NO_CONTENT)
