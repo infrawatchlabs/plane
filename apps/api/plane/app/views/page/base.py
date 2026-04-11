@@ -697,6 +697,12 @@ class WorkspacePageViewSet(BaseViewSet):
 
     def list(self, request, slug):
         queryset = self.get_queryset()
+        search = request.query_params.get("search")
+        if search:
+            queryset = queryset.filter(
+                Q(name__icontains=search)
+                | Q(description_html__icontains=search)
+            )
         pages = PageSerializer(queryset, many=True).data
         return Response(pages, status=status.HTTP_200_OK)
 
