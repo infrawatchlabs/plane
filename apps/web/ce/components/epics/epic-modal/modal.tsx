@@ -5,7 +5,11 @@
  */
 
 import React from "react";
+import { observer } from "mobx-react";
+import { EIssuesStoreType } from "@plane/types";
 import type { TIssue } from "@plane/types";
+import { IssueModalProvider } from "@/plane-web/components/issues/issue-modal/provider";
+import { CreateUpdateIssueModalBase } from "@/components/issues/issue-modal/base";
 
 export interface EpicModalProps {
   data?: Partial<TIssue>;
@@ -21,6 +25,36 @@ export interface EpicModalProps {
   isProjectSelectionDisabled?: boolean;
 }
 
-export function CreateUpdateEpicModal(_props: EpicModalProps) {
-  return <></>;
-}
+export const CreateUpdateEpicModal = observer(function CreateUpdateEpicModal(props: EpicModalProps) {
+  const {
+    isOpen,
+    onClose,
+    data,
+    onSubmit,
+    beforeFormSubmit,
+    fetchIssueDetails,
+    primaryButtonText,
+    isProjectSelectionDisabled,
+  } = props;
+
+  if (!isOpen) return null;
+
+  const dataForPreload = { ...data, is_epic: true };
+
+  return (
+    <IssueModalProvider dataForPreload={dataForPreload}>
+      <CreateUpdateIssueModalBase
+        data={dataForPreload}
+        isOpen={isOpen}
+        onClose={onClose}
+        onSubmit={onSubmit}
+        beforeFormSubmit={beforeFormSubmit}
+        fetchIssueDetails={fetchIssueDetails}
+        primaryButtonText={primaryButtonText}
+        isProjectSelectionDisabled={isProjectSelectionDisabled}
+        storeType={EIssuesStoreType.EPIC}
+        modalTitle={data?.id ? "Update epic" : "Create epic"}
+      />
+    </IssueModalProvider>
+  );
+});
