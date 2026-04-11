@@ -5,6 +5,15 @@
  */
 
 export default {
+  sidebar: {
+    work_items: "Work Items",
+    epics: "Epics",
+    cycles: "Cycles",
+    modules: "Modules",
+    views: "Views",
+    pages: "Pages",
+    intake: "Intake",
+  },
   submit: "Submit",
   cancel: "Cancel",
   loading: "Loading",
