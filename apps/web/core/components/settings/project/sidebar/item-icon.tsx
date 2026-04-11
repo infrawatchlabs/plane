@@ -10,6 +10,7 @@ import { Users, Zap } from "lucide-react";
 import type { ISvgIcons } from "@plane/propel/icons";
 import {
   CycleIcon,
+  EpicIcon,
   EstimatePropertyIcon,
   IntakeIcon,
   LabelPropertyIcon,
@@ -30,6 +31,7 @@ export const PROJECT_SETTINGS_ICONS: Record<TProjectSettingsTabs, LucideIcon | R
   features_views: ViewsIcon,
   features_pages: PageIcon,
   features_intake: IntakeIcon,
+  features_epics: EpicIcon,
   states: StatePropertyIcon,
   labels: LabelPropertyIcon,
   estimates: EstimatePropertyIcon,

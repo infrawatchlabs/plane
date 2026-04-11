@@ -1886,6 +1886,13 @@ export default {
         toggle_title: "Enable intake",
         toggle_description: "Let project members create in app intake requests.",
       },
+      epics: {
+        title: "Epics",
+        short_title: "Epics",
+        description: "Group and track large features that span multiple work items.",
+        toggle_title: "Enable epics",
+        toggle_description: "Project members will be able to create and manage epics.",
+      },
     },
   },
   project_cycles: {
