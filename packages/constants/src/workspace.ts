@@ -66,6 +66,7 @@ export const RESTRICTED_URLS: string[] = [
   "real-time",
   "one",
   "pages",
+  "wiki",
   "mobile",
   "business",
   "pro",

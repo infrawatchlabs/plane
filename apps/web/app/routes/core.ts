@@ -253,6 +253,16 @@ export const coreRoutes: RouteConfigEntry[] = [
       ]),
 
       // ====================================================================
+      // WIKI SECTION — WORKSPACE LEVEL WIKI PAGES
+      // ====================================================================
+      layout("./(all)/[workspaceSlug]/(wiki)/layout.tsx", [
+        // Wiki Home
+        route(":workspaceSlug/wiki", "./(all)/[workspaceSlug]/(wiki)/wiki/page.tsx"),
+        // Wiki Page Detail
+        route(":workspaceSlug/wiki/:pageId", "./(all)/[workspaceSlug]/(wiki)/wiki/[pageId]/page.tsx"),
+      ]),
+
+      // ====================================================================
       // SETTINGS SECTION
       // ====================================================================
       layout("./(all)/[workspaceSlug]/(settings)/layout.tsx", [
