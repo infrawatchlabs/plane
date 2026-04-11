@@ -15,8 +15,8 @@ export class WorkspacePageService extends APIService {
     super(API_BASE_URL);
   }
 
-  async fetchAll(workspaceSlug: string): Promise<TPage[]> {
-    return this.get(`/api/workspaces/${workspaceSlug}/pages/`)
+  async fetchAll(workspaceSlug: string, params?: { search?: string }): Promise<TPage[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/pages/`, { params })
       .then((response) => response?.data)
       .catch((error) => {
         throw error?.response?.data;
