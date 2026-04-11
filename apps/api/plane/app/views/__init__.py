@@ -172,8 +172,8 @@ from .page.base import (
     PageFavoriteViewSet,
     PagesDescriptionViewSet,
     PageDuplicateEndpoint,
-    WorkspacePageViewSet,
 )
+from .page.iw_page import WorkspacePageViewSet
 from .page.version import PageVersionEndpoint
 
 from .search.base import GlobalSearchEndpoint, SearchEndpoint
