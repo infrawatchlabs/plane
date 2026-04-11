@@ -4,75 +4,212 @@
  * See the LICENSE file for details.
  */
 
-import { makeObservable, observable, action, computed } from "mobx";
+import { set, unset } from "lodash-es";
+import { makeObservable, observable, action, computed, runInAction } from "mobx";
+// types
+import type { TPage } from "@plane/types";
+// services
+import { WorkspacePageService } from "@/services/page/workspace-page.service";
 
-/**
- * Represents a single workspace wiki page.
- * This will be expanded when the workspace pages API (PP-9) is integrated.
- */
-export interface IWorkspaceWikiPage {
-  id: string;
-  title: string;
-  emoji?: string;
-  workspace: string;
-  created_at?: string;
-  updated_at?: string;
-}
+type TLoader = "init-loader" | "mutation-loader" | undefined;
 
 export interface IWorkspaceWikiPageStore {
   // observables
-  pages: Map<string, IWorkspaceWikiPage>;
-  isLoading: boolean;
+  data: Record<string, TPage>;
+  loader: TLoader;
+  error: string | undefined;
   // computed
-  pagesList: IWorkspaceWikiPage[];
+  pagesList: TPage[];
   // actions
-  fetchPages: (workspaceSlug: string) => Promise<void>;
+  fetchPages: (workspaceSlug: string) => Promise<TPage[] | undefined>;
+  fetchPageById: (workspaceSlug: string, pageId: string) => Promise<TPage | undefined>;
+  createPage: (workspaceSlug: string, pageData: Partial<TPage>) => Promise<TPage | undefined>;
+  updatePage: (workspaceSlug: string, pageId: string, pageData: Partial<TPage>) => Promise<TPage | undefined>;
+  deletePage: (workspaceSlug: string, pageId: string) => Promise<void>;
 }
 
-/**
- * Stub store for workspace wiki pages.
- * Returns empty data for now. Will be wired to the real API
- * when PP-9 (workspace pages backend) is complete.
- */
 export class WorkspaceWikiPageStore implements IWorkspaceWikiPageStore {
   // observables
-  pages: Map<string, IWorkspaceWikiPage> = new Map();
-  isLoading = false;
+  data: Record<string, TPage> = {};
+  loader: TLoader = undefined;
+  error: string | undefined = undefined;
+  // service
+  private service: WorkspacePageService;
 
   constructor() {
     makeObservable(this, {
-      pages: observable,
-      isLoading: observable,
+      data: observable,
+      loader: observable.ref,
+      error: observable.ref,
       pagesList: computed,
       fetchPages: action,
+      fetchPageById: action,
+      createPage: action,
+      updatePage: action,
+      deletePage: action,
     });
+    this.service = new WorkspacePageService();
   }
 
   /**
-   * Sorted list of workspace wiki pages, derived from the pages map.
+   * Sorted list of workspace wiki pages (most recently updated first).
    */
-  get pagesList(): IWorkspaceWikiPage[] {
-    return Array.from(this.pages.values()).sort((a, b) => {
-      const aDate = a.updated_at ?? a.created_at ?? "";
-      const bDate = b.updated_at ?? b.created_at ?? "";
+  get pagesList(): TPage[] {
+    return Object.values(this.data).sort((a, b) => {
+      const aDate = a.updated_at?.toString() ?? a.created_at?.toString() ?? "";
+      const bDate = b.updated_at?.toString() ?? b.created_at?.toString() ?? "";
       return bDate.localeCompare(aDate);
     });
   }
 
   /**
-   * Fetch workspace wiki pages from the API.
-   * Currently a no-op stub; will call the workspace pages endpoint once PP-9 ships.
+   * Fetch all workspace wiki pages.
    */
-  fetchPages = async (_workspaceSlug: string): Promise<void> => {
-    this.isLoading = true;
+  fetchPages = async (workspaceSlug: string): Promise<TPage[] | undefined> => {
     try {
-      // TODO: Call workspace pages API when PP-9 is ready
-      // const response = await workspaceWikiPageService.list(workspaceSlug);
-      // runInAction(() => {
-      //   response.forEach((page) => this.pages.set(page.id, page));
-      // });
-    } finally {
-      this.isLoading = false;
+      const hasExistingData = Object.keys(this.data).length > 0;
+      runInAction(() => {
+        this.loader = hasExistingData ? "mutation-loader" : "init-loader";
+        this.error = undefined;
+      });
+
+      const pages = await this.service.fetchAll(workspaceSlug);
+
+      runInAction(() => {
+        for (const page of pages) {
+          if (page?.id) {
+            set(this.data, [page.id], page);
+          }
+        }
+        this.loader = undefined;
+      });
+
+      return pages;
+    } catch (error) {
+      runInAction(() => {
+        this.loader = undefined;
+        this.error = "Failed to fetch workspace pages.";
+      });
+      throw error;
+    }
+  };
+
+  /**
+   * Fetch a single workspace wiki page by ID.
+   */
+  fetchPageById = async (workspaceSlug: string, pageId: string): Promise<TPage | undefined> => {
+    try {
+      runInAction(() => {
+        this.loader = "mutation-loader";
+        this.error = undefined;
+      });
+
+      const page = await this.service.fetchById(workspaceSlug, pageId);
+
+      runInAction(() => {
+        if (page?.id) {
+          set(this.data, [page.id], page);
+        }
+        this.loader = undefined;
+      });
+
+      return page;
+    } catch (error) {
+      runInAction(() => {
+        this.loader = undefined;
+        this.error = "Failed to fetch page details.";
+      });
+      throw error;
+    }
+  };
+
+  /**
+   * Create a new workspace wiki page.
+   */
+  createPage = async (workspaceSlug: string, pageData: Partial<TPage>): Promise<TPage | undefined> => {
+    try {
+      runInAction(() => {
+        this.loader = "mutation-loader";
+        this.error = undefined;
+      });
+
+      const page = await this.service.create(workspaceSlug, pageData);
+
+      runInAction(() => {
+        if (page?.id) {
+          set(this.data, [page.id], page);
+        }
+        this.loader = undefined;
+      });
+
+      return page;
+    } catch (error) {
+      runInAction(() => {
+        this.loader = undefined;
+        this.error = "Failed to create page.";
+      });
+      throw error;
+    }
+  };
+
+  /**
+   * Update a workspace wiki page.
+   */
+  updatePage = async (
+    workspaceSlug: string,
+    pageId: string,
+    pageData: Partial<TPage>
+  ): Promise<TPage | undefined> => {
+    // Optimistic update
+    const existingPage = this.data[pageId];
+    if (existingPage) {
+      runInAction(() => {
+        set(this.data, [pageId], { ...existingPage, ...pageData });
+      });
+    }
+
+    try {
+      const page = await this.service.update(workspaceSlug, pageId, pageData);
+
+      runInAction(() => {
+        if (page?.id) {
+          set(this.data, [page.id], page);
+        }
+      });
+
+      return page;
+    } catch (error) {
+      // Revert optimistic update
+      if (existingPage) {
+        runInAction(() => {
+          set(this.data, [pageId], existingPage);
+        });
+      }
+      throw error;
+    }
+  };
+
+  /**
+   * Delete a workspace wiki page.
+   */
+  deletePage = async (workspaceSlug: string, pageId: string): Promise<void> => {
+    const existingPage = this.data[pageId];
+
+    try {
+      // Optimistic delete
+      runInAction(() => {
+        unset(this.data, [pageId]);
+      });
+
+      await this.service.remove(workspaceSlug, pageId);
+    } catch (error) {
+      // Revert optimistic delete
+      if (existingPage) {
+        runInAction(() => {
+          set(this.data, [pageId], existingPage);
+        });
+      }
+      throw error;
     }
   };
 }
