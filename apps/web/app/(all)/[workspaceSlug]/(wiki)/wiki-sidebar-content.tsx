@@ -16,14 +16,29 @@ import { cn } from "@plane/utils";
 import { SidebarNavItem } from "@/components/sidebar/sidebar-navigation";
 import { AppSidebarToggleButton } from "@/components/sidebar/sidebar-toggle-button";
 // store hooks
-import { useWorkspaceWikiPages } from "@/hooks/store/use-workspace-wiki-pages";
+import { EPageStoreType, usePageStore } from "@/plane-web/hooks/store";
 import { useAppRouter } from "@/hooks/use-app-router";
+
+// Helper to get emoji from page logo_props
+const getPageEmoji = (page: { logo_props?: { in_use?: string; emoji?: { value?: string } } }): string => {
+  if (page.logo_props?.in_use === "emoji" && page.logo_props?.emoji?.value) {
+    return page.logo_props.emoji.value;
+  }
+  return "\uD83D\uDCC4";
+};
 
 export const WikiSidebarContent = observer(function WikiSidebarContent() {
   const { workspaceSlug } = useParams();
   const pathname = usePathname();
   const router = useAppRouter();
-  const { pagesList, loader, fetchPages, createPage, deletePage } = useWorkspaceWikiPages();
+  const wikiStore = usePageStore(EPageStoreType.WORKSPACE);
+  const { loader, data, fetchPagesList, createPage, removePage } = wikiStore;
+  // derive sorted pages list from data
+  const pagesList = Object.values(data).toSorted((a, b) => {
+    const aDate = a.updated_at?.toString() ?? a.created_at?.toString() ?? "";
+    const bDate = b.updated_at?.toString() ?? b.created_at?.toString() ?? "";
+    return bDate.localeCompare(aDate);
+  });
   // states
   const [isCreating, setIsCreating] = useState(false);
 
@@ -34,16 +49,16 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
   // Fetch pages on mount
   useEffect(() => {
     if (slug) {
-      fetchPages(slug);
+      fetchPagesList(slug);
     }
-  }, [slug, fetchPages]);
+  }, [slug, fetchPagesList]);
 
   // Handle new page creation
   const handleCreatePage = useCallback(async () => {
     if (!slug || isCreating) return;
     setIsCreating(true);
     try {
-      const page = await createPage(slug, {
+      const page = await createPage({
         name: "Untitled",
       });
       if (page?.id) {
@@ -63,7 +78,7 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
       e.stopPropagation();
       if (!slug) return;
       try {
-        await deletePage(slug, pageId);
+        await removePage({ pageId });
         // If we're currently viewing the deleted page, navigate to wiki home
         if (pathname === `${wikiBasePath}/${pageId}`) {
           router.push(wikiBasePath);
@@ -72,18 +87,10 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
         console.error("Failed to delete wiki page:", error);
       }
     },
-    [slug, deletePage, pathname, wikiBasePath, router]
+    [slug, removePage, pathname, wikiBasePath, router]
   );
 
   const isInitLoading = loader === "init-loader";
-
-  // Helper to get emoji from page logo_props
-  const getPageEmoji = (page: (typeof pagesList)[0]): string => {
-    if (page.logo_props?.in_use === "emoji" && page.logo_props?.emoji?.value) {
-      return page.logo_props.emoji.value;
-    }
-    return "\uD83D\uDCC4";
-  };
 
   return (
     <div className="flex h-full w-full animate-fade-in flex-col">

@@ -134,7 +134,7 @@ export class CoreRootStore {
     this.editorAssetStore = new EditorAssetStore();
     this.analytics = new AnalyticsStore();
     this.workItemFilters = new WorkItemFilterStore();
-    this.workspaceWikiPages = new WorkspaceWikiPageStore();
+    this.workspaceWikiPages = new WorkspaceWikiPageStore(this as unknown as RootStore);
     this.powerK = new PowerKStore();
   }
 
@@ -168,7 +168,7 @@ export class CoreRootStore {
     this.stickyStore = new StickyStore();
     this.editorAssetStore = new EditorAssetStore();
     this.workItemFilters = new WorkItemFilterStore();
-    this.workspaceWikiPages = new WorkspaceWikiPageStore();
+    this.workspaceWikiPages = new WorkspaceWikiPageStore(this as unknown as RootStore);
     this.powerK = new PowerKStore();
   }
 }

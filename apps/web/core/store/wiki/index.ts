@@ -5,3 +5,4 @@
  */
 
 export * from "./workspace-wiki-page.store";
+export * from "./workspace-wiki-page";

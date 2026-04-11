@@ -4,81 +4,167 @@
  * See the LICENSE file for details.
  */
 
-import { set, unset } from "lodash-es";
-import { makeObservable, observable, action, computed, runInAction } from "mobx";
+import { unset, set } from "lodash-es";
+import { makeObservable, observable, runInAction, action, computed } from "mobx";
+import { computedFn } from "mobx-utils";
 // types
-import type { TPage } from "@plane/types";
+import type { TPage, TPageFilters, TPageNavigationTabs } from "@plane/types";
+// helpers
+import { filterPagesByPageType, getPageName, orderPages, shouldFilterPage } from "@plane/utils";
+// plane web store
+import type { RootStore } from "@/plane-web/store/root.store";
 // services
 import { WorkspacePageService } from "@/services/page/workspace-page.service";
+// store
+import type { CoreRootStore } from "../root.store";
+import type { TWorkspaceWikiPage } from "./workspace-wiki-page";
+import { WorkspaceWikiPage } from "./workspace-wiki-page";
 
 type TLoader = "init-loader" | "mutation-loader" | undefined;
 
+type TError = { title: string; description: string };
+
 export interface IWorkspaceWikiPageStore {
   // observables
-  data: Record<string, TPage>;
   loader: TLoader;
-  error: string | undefined;
+  data: Record<string, TWorkspaceWikiPage>; // pageId => Page
+  error: TError | undefined;
+  filters: TPageFilters;
   // computed
-  pagesList: TPage[];
+  isAnyPageAvailable: boolean;
+  // helper actions
+  getPageIds: () => string[];
+  getFilteredPageIdsByTab: (pageType: TPageNavigationTabs) => string[] | undefined;
+  getPageById: (pageId: string) => TWorkspaceWikiPage | undefined;
+  updateFilters: <T extends keyof TPageFilters>(filterKey: T, filterValue: TPageFilters[T]) => void;
+  clearAllFilters: () => void;
   // actions
-  fetchPages: (workspaceSlug: string) => Promise<TPage[] | undefined>;
-  fetchPageById: (workspaceSlug: string, pageId: string) => Promise<TPage | undefined>;
-  createPage: (workspaceSlug: string, pageData: Partial<TPage>) => Promise<TPage | undefined>;
-  updatePage: (workspaceSlug: string, pageId: string, pageData: Partial<TPage>) => Promise<TPage | undefined>;
-  deletePage: (workspaceSlug: string, pageId: string) => Promise<void>;
+  fetchPagesList: (workspaceSlug: string) => Promise<TPage[] | undefined>;
+  fetchPageDetails: (
+    workspaceSlug: string,
+    pageId: string,
+    options?: { trackVisit?: boolean }
+  ) => Promise<TPage | undefined>;
+  createPage: (pageData: Partial<TPage>) => Promise<TPage | undefined>;
+  removePage: (params: { pageId: string; shouldSync?: boolean }) => Promise<void>;
 }
 
 export class WorkspaceWikiPageStore implements IWorkspaceWikiPageStore {
   // observables
-  data: Record<string, TPage> = {};
-  loader: TLoader = undefined;
-  error: string | undefined = undefined;
+  loader: TLoader = "init-loader";
+  data: Record<string, TWorkspaceWikiPage> = {}; // pageId => Page
+  error: TError | undefined = undefined;
+  filters: TPageFilters = {
+    searchQuery: "",
+    sortKey: "updated_at",
+    sortBy: "desc",
+  };
   // service
-  private service: WorkspacePageService;
+  service: WorkspacePageService;
+  rootStore: CoreRootStore;
 
-  constructor() {
+  constructor(private store: RootStore) {
     makeObservable(this, {
-      data: observable,
+      // observables
       loader: observable.ref,
-      error: observable.ref,
-      pagesList: computed,
-      fetchPages: action,
-      fetchPageById: action,
+      data: observable,
+      error: observable,
+      filters: observable,
+      // computed
+      isAnyPageAvailable: computed,
+      // helper actions
+      updateFilters: action,
+      clearAllFilters: action,
+      // actions
+      fetchPagesList: action,
+      fetchPageDetails: action,
       createPage: action,
-      updatePage: action,
-      deletePage: action,
+      removePage: action,
     });
+    this.rootStore = store;
+    // service
     this.service = new WorkspacePageService();
   }
 
   /**
-   * Sorted list of workspace wiki pages (most recently updated first).
+   * @description check if any page is available
    */
-  get pagesList(): TPage[] {
-    return Object.values(this.data).sort((a, b) => {
-      const aDate = a.updated_at?.toString() ?? a.created_at?.toString() ?? "";
-      const bDate = b.updated_at?.toString() ?? b.created_at?.toString() ?? "";
-      return bDate.localeCompare(aDate);
-    });
+  get isAnyPageAvailable() {
+    if (this.loader) return true;
+    return Object.keys(this.data).length > 0;
   }
 
   /**
-   * Fetch all workspace wiki pages.
+   * @description get all page ids sorted
    */
-  fetchPages = async (workspaceSlug: string): Promise<TPage[] | undefined> => {
+  getPageIds = computedFn(() => {
+    const pages = Object.values(this?.data || {});
+    const sorted = orderPages(pages, this.filters.sortKey, this.filters.sortBy);
+    return (sorted.map((page) => page.id) as string[]) || [];
+  });
+
+  /**
+   * @description get filtered page ids based on the pageType
+   * @param {TPageNavigationTabs} pageType
+   */
+  getFilteredPageIdsByTab = computedFn((pageType: TPageNavigationTabs) => {
+    const pagesByType = filterPagesByPageType(pageType, Object.values(this?.data || {}));
+    let filteredPages = pagesByType.filter(
+      (p) =>
+        getPageName(p.name).toLowerCase().includes(this.filters.searchQuery.toLowerCase()) &&
+        shouldFilterPage(p, this.filters.filters)
+    );
+    filteredPages = orderPages(filteredPages, this.filters.sortKey, this.filters.sortBy);
+
+    const pages = (filteredPages.map((page) => page.id) as string[]) || undefined;
+
+    return pages ?? undefined;
+  });
+
+  /**
+   * @description get the page store by id
+   * @param {string} pageId
+   */
+  getPageById = computedFn((pageId: string) => this.data?.[pageId] || undefined);
+
+  updateFilters = <T extends keyof TPageFilters>(filterKey: T, filterValue: TPageFilters[T]) => {
+    runInAction(() => {
+      set(this.filters, [filterKey], filterValue);
+    });
+  };
+
+  /**
+   * @description clear all the filters
+   */
+  clearAllFilters = () =>
+    runInAction(() => {
+      set(this.filters, ["filters"], {});
+    });
+
+  /**
+   * @description fetch all workspace wiki pages
+   */
+  fetchPagesList = async (workspaceSlug: string) => {
     try {
+      if (!workspaceSlug) return undefined;
+
       const hasExistingData = Object.keys(this.data).length > 0;
       runInAction(() => {
-        this.loader = hasExistingData ? "mutation-loader" : "init-loader";
+        this.loader = hasExistingData ? `mutation-loader` : `init-loader`;
         this.error = undefined;
       });
 
       const pages = await this.service.fetchAll(workspaceSlug);
-
       runInAction(() => {
         for (const page of pages) {
           if (page?.id) {
-            set(this.data, [page.id], page);
+            const existingPage = this.getPageById(page.id);
+            if (existingPage) {
+              const { name, ...otherFields } = page;
+              existingPage.mutateProperties(otherFields, false);
+            } else {
+              set(this.data, [page.id], new WorkspaceWikiPage(this.store, page));
+            }
           }
         }
         this.loader = undefined;
@@ -88,27 +174,40 @@ export class WorkspaceWikiPageStore implements IWorkspaceWikiPageStore {
     } catch (error) {
       runInAction(() => {
         this.loader = undefined;
-        this.error = "Failed to fetch workspace pages.";
+        this.error = {
+          title: "Failed",
+          description: "Failed to fetch the wiki pages, Please try again later.",
+        };
       });
       throw error;
     }
   };
 
   /**
-   * Fetch a single workspace wiki page by ID.
+   * @description fetch the details of a wiki page
+   * @param {string} pageId
    */
-  fetchPageById = async (workspaceSlug: string, pageId: string): Promise<TPage | undefined> => {
+  fetchPageDetails = async (workspaceSlug: string, pageId: string, options?: { trackVisit?: boolean }) => {
+    const { trackVisit } = options || {};
     try {
+      if (!workspaceSlug || !pageId) return undefined;
+
+      const currentPageId = this.getPageById(pageId);
       runInAction(() => {
-        this.loader = "mutation-loader";
+        this.loader = currentPageId ? `mutation-loader` : `init-loader`;
         this.error = undefined;
       });
 
-      const page = await this.service.fetchById(workspaceSlug, pageId);
+      const page = await this.service.fetchById(workspaceSlug, pageId, trackVisit ?? true);
 
       runInAction(() => {
         if (page?.id) {
-          set(this.data, [page.id], page);
+          const pageInstance = this.getPageById(page.id);
+          if (pageInstance) {
+            pageInstance.mutateProperties(page, false);
+          } else {
+            set(this.data, [page.id], new WorkspaceWikiPage(this.store, page));
+          }
         }
         this.loader = undefined;
       });
@@ -117,28 +216,32 @@ export class WorkspaceWikiPageStore implements IWorkspaceWikiPageStore {
     } catch (error) {
       runInAction(() => {
         this.loader = undefined;
-        this.error = "Failed to fetch page details.";
+        this.error = {
+          title: "Failed",
+          description: "Failed to fetch the wiki page, Please try again later.",
+        };
       });
       throw error;
     }
   };
 
   /**
-   * Create a new workspace wiki page.
+   * @description create a wiki page
+   * @param {Partial<TPage>} pageData
    */
-  createPage = async (workspaceSlug: string, pageData: Partial<TPage>): Promise<TPage | undefined> => {
+  createPage = async (pageData: Partial<TPage>) => {
     try {
+      const { workspaceSlug } = this.store.router;
+      if (!workspaceSlug) return undefined;
+
       runInAction(() => {
         this.loader = "mutation-loader";
         this.error = undefined;
       });
 
       const page = await this.service.create(workspaceSlug, pageData);
-
       runInAction(() => {
-        if (page?.id) {
-          set(this.data, [page.id], page);
-        }
+        if (page?.id) set(this.data, [page.id], new WorkspaceWikiPage(this.store, page));
         this.loader = undefined;
       });
 
@@ -146,69 +249,37 @@ export class WorkspaceWikiPageStore implements IWorkspaceWikiPageStore {
     } catch (error) {
       runInAction(() => {
         this.loader = undefined;
-        this.error = "Failed to create page.";
+        this.error = {
+          title: "Failed",
+          description: "Failed to create a wiki page, Please try again later.",
+        };
       });
       throw error;
     }
   };
 
   /**
-   * Update a workspace wiki page.
+   * @description delete a wiki page
+   * @param {string} pageId
    */
-  updatePage = async (
-    workspaceSlug: string,
-    pageId: string,
-    pageData: Partial<TPage>
-  ): Promise<TPage | undefined> => {
-    // Optimistic update
-    const existingPage = this.data[pageId];
-    if (existingPage) {
-      runInAction(() => {
-        set(this.data, [pageId], { ...existingPage, ...pageData });
-      });
-    }
-
+  removePage = async ({ pageId, shouldSync: _shouldSync = true }: { pageId: string; shouldSync?: boolean }) => {
     try {
-      const page = await this.service.update(workspaceSlug, pageId, pageData);
-
-      runInAction(() => {
-        if (page?.id) {
-          set(this.data, [page.id], page);
-        }
-      });
-
-      return page;
-    } catch (error) {
-      // Revert optimistic update
-      if (existingPage) {
-        runInAction(() => {
-          set(this.data, [pageId], existingPage);
-        });
-      }
-      throw error;
-    }
-  };
-
-  /**
-   * Delete a workspace wiki page.
-   */
-  deletePage = async (workspaceSlug: string, pageId: string): Promise<void> => {
-    const existingPage = this.data[pageId];
-
-    try {
-      // Optimistic delete
-      runInAction(() => {
-        unset(this.data, [pageId]);
-      });
+      const { workspaceSlug } = this.store.router;
+      if (!workspaceSlug || !pageId) return undefined;
 
       await this.service.remove(workspaceSlug, pageId);
+      runInAction(() => {
+        unset(this.data, [pageId]);
+        if (this.rootStore.favorite.entityMap[pageId]) this.rootStore.favorite.removeFavoriteFromStore(pageId);
+      });
     } catch (error) {
-      // Revert optimistic delete
-      if (existingPage) {
-        runInAction(() => {
-          set(this.data, [pageId], existingPage);
-        });
-      }
+      runInAction(() => {
+        this.loader = undefined;
+        this.error = {
+          title: "Failed",
+          description: "Failed to delete a wiki page, Please try again later.",
+        };
+      });
       throw error;
     }
   };

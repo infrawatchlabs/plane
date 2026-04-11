@@ -4,192 +4,188 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo } from "react";
 import { observer } from "mobx-react";
-import { useParams } from "next/navigation";
-import { Loader2 } from "lucide-react";
+import Link from "next/link";
+import { useParams } from "react-router";
+import useSWR from "swr";
+// plane types
+import { getButtonStyling } from "@plane/propel/button";
+import type { TSearchEntityRequestPayload, TWebhookConnectionQueryParams } from "@plane/types";
+import { EFileAssetType } from "@plane/types";
+// plane utils
+import { cn } from "@plane/utils";
+// components
+import { LogoSpinner } from "@/components/common/logo-spinner";
+import { PageHead } from "@/components/core/page-title";
+import type { TPageRootConfig, TPageRootHandlers } from "@/components/pages/editor/page-root";
+import { PageRoot } from "@/components/pages/editor/page-root";
 // hooks
-import { useWorkspaceWikiPages } from "@/hooks/store/use-workspace-wiki-pages";
+import { useEditorConfig } from "@/hooks/editor";
+import { useEditorAsset } from "@/hooks/store/use-editor-asset";
+import { useWorkspace } from "@/hooks/store/use-workspace";
+import { useAppRouter } from "@/hooks/use-app-router";
+// plane web hooks
+import { EPageStoreType, usePage, usePageStore } from "@/plane-web/hooks/store";
+// services
+import { WorkspacePageService } from "@/services/page/workspace-page.service";
+import { WorkspaceService } from "@/services/workspace.service";
 
-/**
- * Debounce helper for auto-saving.
- */
-function useDebouncedCallback<T extends (...args: never[]) => void>(callback: T, delay: number) {
-  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+const workspaceService = new WorkspaceService();
+const workspacePageService = new WorkspacePageService();
 
-  const debouncedFn = useCallback(
-    (...args: Parameters<T>) => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-      timeoutRef.current = setTimeout(() => {
-        callback(...args);
-      }, delay);
-    },
-    [callback, delay]
+const storeType = EPageStoreType.WORKSPACE;
+
+function WikiPageDetailPage() {
+  // router
+  const router = useAppRouter();
+  const { workspaceSlug, pageId } = useParams<{ workspaceSlug: string; pageId: string }>();
+  if (!workspaceSlug || !pageId) throw new Error("workspaceSlug and pageId are required");
+  // store hooks
+  const { createPage, fetchPageDetails } = usePageStore(storeType);
+  const page = usePage({
+    pageId,
+    storeType,
+  });
+  const { getWorkspaceBySlug } = useWorkspace();
+  const { uploadEditorAsset, duplicateEditorAsset } = useEditorAsset();
+  // derived values
+  const workspaceId = workspaceSlug ? (getWorkspaceBySlug(workspaceSlug)?.id ?? "") : "";
+  const { canCurrentUserAccessPage, id, name, updateDescription } = page ?? {};
+  // entity search handler
+  const fetchEntityCallback = useCallback(
+    async (payload: TSearchEntityRequestPayload) =>
+      await workspaceService.searchEntity(workspaceSlug, {
+        ...payload,
+      }),
+    [workspaceSlug]
   );
-
-  // Cleanup on unmount
-  useEffect(
-    () => () => {
-      if (timeoutRef.current) clearTimeout(timeoutRef.current);
-    },
-    []
-  );
-
-  return debouncedFn;
-}
-
-function WikiPageDetail() {
-  const { workspaceSlug, pageId } = useParams();
-  const slug = workspaceSlug?.toString() ?? "";
-  const id = pageId?.toString() ?? "";
-
-  const { data, fetchPageById, updatePage, loader } = useWorkspaceWikiPages();
-
-  const page = data[id];
-
-  // Local state for editing
-  const [title, setTitle] = useState("");
-  const [description, setDescription] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-
-  // Fetch page on mount
-  useEffect(() => {
-    if (!slug || !id) return;
-    setIsLoading(true);
-    setError(null);
-    fetchPageById(slug, id)
-      .then((fetchedPage) => {
-        if (fetchedPage) {
-          setTitle(fetchedPage.name ?? "");
-          setDescription(fetchedPage.description_html ?? "");
-        }
-      })
-      .catch(() => {
-        setError("Failed to load page. Please try again.");
-      })
-      .finally(() => {
-        setIsLoading(false);
-      });
-  }, [slug, id, fetchPageById]);
-
-  // Sync from store when page data changes externally
-  useEffect(() => {
-    if (page && !isLoading) {
-      // Only sync if we're not currently editing (i.e., on initial load)
-      // The title/description sync is handled by the fetch above
+  // editor config
+  const { getEditorFileHandlers } = useEditorConfig();
+  // fetch page details
+  const { error: pageDetailsError } = useSWR(
+    `WIKI_PAGE_DETAILS_${pageId}`,
+    () => fetchPageDetails(workspaceSlug, pageId),
+    {
+      revalidateIfStale: true,
+      revalidateOnFocus: true,
+      revalidateOnReconnect: true,
     }
-  }, [page, isLoading]);
-
-  // Auto-save title
-  const debouncedSaveTitle = useDebouncedCallback(
-    useCallback(
-      async (newTitle: string) => {
-        if (!slug || !id) return;
-        setIsSaving(true);
-        try {
-          await updatePage(slug, id, { name: newTitle });
-        } catch {
-          console.error("Failed to save title");
-        } finally {
-          setIsSaving(false);
+  );
+  // page root handlers
+  const pageRootHandlers: TPageRootHandlers = useMemo(
+    () => ({
+      create: createPage,
+      fetchAllVersions: async () =>
+        // Workspace pages may not support versions yet — return empty
+        [],
+      fetchDescriptionBinary: async () => {
+        if (!id) return;
+        return await workspacePageService.fetchDescriptionBinary(workspaceSlug, id);
+      },
+      fetchEntity: fetchEntityCallback,
+      fetchVersionDetails: async () =>
+        // Workspace pages may not support versions yet — return undefined
+        undefined,
+      restoreVersion: async () => {
+        // no-op for workspace pages
+      },
+      getRedirectionLink: (redirectPageId) => {
+        if (redirectPageId) {
+          return `/${workspaceSlug}/wiki/${redirectPageId}`;
+        } else {
+          return `/${workspaceSlug}/wiki`;
         }
       },
-      [slug, id, updatePage]
-    ),
-    1000
+      updateDescription: updateDescription ?? (async () => {}),
+    }),
+    [createPage, fetchEntityCallback, id, updateDescription, workspaceSlug]
+  );
+  // page root config
+  const pageRootConfig: TPageRootConfig = useMemo(
+    () => ({
+      fileHandler: getEditorFileHandlers({
+        uploadFile: async (blockId, file) => {
+          const { asset_id } = await uploadEditorAsset({
+            blockId,
+            data: {
+              entity_identifier: id ?? "",
+              entity_type: EFileAssetType.PAGE_DESCRIPTION,
+            },
+            file,
+            workspaceSlug,
+          });
+          return asset_id;
+        },
+        duplicateFile: async (assetId: string) => {
+          const { asset_id } = await duplicateEditorAsset({
+            assetId,
+            entityId: id,
+            entityType: EFileAssetType.PAGE_DESCRIPTION,
+            workspaceSlug,
+          });
+          return asset_id;
+        },
+        workspaceId,
+        workspaceSlug,
+      }),
+    }),
+    [getEditorFileHandlers, workspaceId, workspaceSlug, uploadEditorAsset, id, duplicateEditorAsset]
   );
 
-  // Auto-save description
-  const debouncedSaveDescription = useDebouncedCallback(
-    useCallback(
-      async (newDescription: string) => {
-        if (!slug || !id) return;
-        setIsSaving(true);
-        try {
-          await updatePage(slug, id, { description_html: newDescription });
-        } catch {
-          console.error("Failed to save description");
-        } finally {
-          setIsSaving(false);
-        }
-      },
-      [slug, id, updatePage]
-    ),
-    1500
+  const webhookConnectionParams: TWebhookConnectionQueryParams = useMemo(
+    () => ({
+      documentType: "project_page",
+      workspaceSlug,
+    }),
+    [workspaceSlug]
   );
 
-  const handleTitleChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const newTitle = e.target.value;
-      setTitle(newTitle);
-      debouncedSaveTitle(newTitle);
-    },
-    [debouncedSaveTitle]
-  );
+  useEffect(() => {
+    if (page?.deleted_at && page?.id) {
+      router.push(pageRootHandlers.getRedirectionLink());
+    }
+  }, [page?.deleted_at, page?.id, router, pageRootHandlers]);
 
-  const handleDescriptionChange = useCallback(
-    (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-      const newDescription = e.target.value;
-      setDescription(newDescription);
-      debouncedSaveDescription(newDescription);
-    },
-    [debouncedSaveDescription]
-  );
-
-  if (isLoading) {
+  if ((!page || !id) && !pageDetailsError)
     return (
-      <div className="flex size-full items-center justify-center">
-        <Loader2 className="size-6 animate-spin text-placeholder" />
+      <div className="grid size-full place-items-center">
+        <LogoSpinner />
       </div>
     );
-  }
 
-  if (error) {
+  if (pageDetailsError || !canCurrentUserAccessPage)
     return (
-      <div className="flex size-full flex-col items-center justify-center gap-4 text-center">
-        <div className="flex flex-col gap-1">
-          <h2 className="text-xl font-semibold text-primary">Error</h2>
-          <p className="max-w-md text-sm text-secondary">{error}</p>
-        </div>
+      <div className="flex h-full w-full flex-col items-center justify-center">
+        <h3 className="text-center text-16 font-semibold">Page not found</h3>
+        <p className="mt-3 text-center text-13 text-secondary">
+          The page you are trying to access doesn{"'"}t exist or you don{"'"}t have permission to view it.
+        </p>
+        <Link href={`/${workspaceSlug}/wiki`} className={cn(getButtonStyling("secondary", "base"), "mt-5")}>
+          View other Wiki Pages
+        </Link>
       </div>
     );
-  }
+
+  if (!page) return null;
 
   return (
-    <div className="flex size-full flex-col overflow-hidden">
-      {/* Save status indicator */}
-      <div className="flex items-center justify-end px-6 py-2">
-        <span className="text-xs text-placeholder">
-          {isSaving ? "Saving..." : loader === "mutation-loader" ? "Saving..." : "Saved"}
-        </span>
-      </div>
-
-      {/* Page content */}
-      <div className="flex flex-1 flex-col overflow-y-auto px-page-x py-4">
-        <div className="mx-auto w-full max-w-3xl">
-          {/* Title */}
-          <input
-            type="text"
-            value={title}
-            onChange={handleTitleChange}
-            placeholder="Untitled"
-            className="w-full border-none bg-transparent text-3xl font-bold text-primary outline-none placeholder:text-placeholder"
-            autoFocus
-          />
-
-          {/* Description editor */}
-          <textarea
-            value={description}
-            onChange={handleDescriptionChange}
-            placeholder="Start writing your page content here..."
-            className="mt-4 min-h-[400px] w-full flex-1 resize-none border-none bg-transparent text-sm leading-relaxed text-secondary outline-none placeholder:text-placeholder"
+    <>
+      <PageHead title={name} />
+      <div className="flex h-full flex-col justify-between">
+        <div className="relative flex h-full w-full flex-shrink-0 flex-col overflow-hidden">
+          <PageRoot
+            config={pageRootConfig}
+            handlers={pageRootHandlers}
+            storeType={storeType}
+            page={page}
+            webhookConnectionParams={webhookConnectionParams}
+            workspaceSlug={workspaceSlug}
           />
         </div>
       </div>
-    </div>
+    </>
   );
 }
 
-export default observer(WikiPageDetail);
+export default observer(WikiPageDetailPage);
