@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 /**
  * Copyright (c) 2023-present Plane Software, Inc. and contributors
  * SPDX-License-Identifier: AGPL-3.0-only
@@ -53,10 +54,7 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
   const issueStoreType = useIssueStoreType();
 
   let storeType = issueStoreFromProps ?? issueStoreType;
-  // Fallback to project store if epic store is used in issue modal.
-  if (storeType === EIssuesStoreType.EPIC) {
-    storeType = EIssuesStoreType.PROJECT;
-  }
+  const isEpicCreate = storeType === EIssuesStoreType.EPIC;
   // ref
   const issueTitleRef = useRef<HTMLInputElement>(null);
   // states
@@ -236,12 +234,13 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
       setToast({
         type: TOAST_TYPE.SUCCESS,
         title: t("success"),
-        message: `${is_draft_issue ? t("draft_created") : t("issue_created_successfully")} `,
+        message: `${is_draft_issue ? t("draft_created") : isEpicCreate ? t("epic_created_successfully") : t("issue_created_successfully")} `,
         actionItems: !is_draft_issue && response?.project_id && (
           <CreateIssueToastActionItems
             workspaceSlug={workspaceSlug.toString()}
             projectId={response?.project_id}
             issueId={response.id}
+            isEpic={isEpicCreate}
           />
         ),
       });
@@ -254,7 +253,9 @@ export const CreateUpdateIssueModalBase = observer(function CreateUpdateIssueMod
       setToast({
         type: TOAST_TYPE.ERROR,
         title: t("error"),
-        message: error?.error ?? t(is_draft_issue ? "draft_creation_failed" : "issue_creation_failed"),
+        message:
+          error?.error ??
+          t(is_draft_issue ? "draft_creation_failed" : isEpicCreate ? "epic_creation_failed" : "issue_creation_failed"),
       });
       throw error;
     }

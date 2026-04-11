@@ -37,7 +37,7 @@ function EpicIssueLayout(props: { activeLayout: EIssueLayoutTypes | undefined })
     case EIssueLayoutTypes.SPREADSHEET:
       return <ProjectSpreadsheetLayout />;
     default:
-      return null;
+      return <ListLayout />;
   }
 }
 
@@ -46,7 +46,7 @@ function ProjectEpicsPage() {
   const workspaceSlug = routerWorkspaceSlug?.toString();
   const projectId = routerProjectId?.toString();
   // hooks
-  const { issues, issuesFilter } = useIssues(EIssuesStoreType.EPIC);
+  const { issuesFilter } = useIssues(EIssuesStoreType.EPIC);
   const { getProjectById } = useProject();
   // derived
   const project = projectId ? getProjectById(projectId) : undefined;
@@ -78,7 +78,7 @@ function ProjectEpicsPage() {
         projectId={projectId}
         workspaceSlug={workspaceSlug}
       >
-        {({ filter: epicWorkItemsFilter }) => (
+        {({ filter: _epicWorkItemsFilter }) => (
           <div className="relative flex h-full w-full flex-col overflow-hidden">
             <EpicIssueLayout activeLayout={activeLayout} />
           </div>

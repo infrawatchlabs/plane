@@ -33,10 +33,14 @@ class IwEpicViewSet(IssueViewSet):
             workspace=workspace, is_epic=True
         ).first()
         if epic_type:
-            request.data._mutable = True
-            request.data["type_id"] = str(epic_type.id)
-            request.data._mutable = False
-        return super().create(request, slug, project_id)
+            # request.data may be a plain dict (JSON) or a QueryDict (form)
+            if hasattr(request.data, "_mutable"):
+                request.data._mutable = True
+                request.data["type"] = str(epic_type.id)
+                request.data._mutable = False
+            else:
+                request.data["type"] = str(epic_type.id)
+        return super().create(request, slug=slug, project_id=project_id)
 
 
 class IwEpicListEndpoint(IssueListEndpoint):
