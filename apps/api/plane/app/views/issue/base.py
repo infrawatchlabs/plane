@@ -206,6 +206,9 @@ class IssueViewSet(BaseViewSet):
         issues = Issue.issue_objects.filter(
             project_id=self.kwargs.get("project_id"),
             workspace__slug=self.kwargs.get("slug"),
+        ).filter(
+            # IW: Exclude epics from regular work items view
+            Q(type__isnull=True) | Q(type__is_epic=False)
         ).distinct()
 
         return issues

@@ -174,6 +174,7 @@ from .page.base import (
     PageDuplicateEndpoint,
 )
 from .page.iw_workspace_page import WorkspacePageViewSet
+from .issue.iw_epic import IwEpicViewSet, IwEpicListEndpoint
 from .page.version import PageVersionEndpoint
 
 from .search.base import GlobalSearchEndpoint, SearchEndpoint
