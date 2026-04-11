@@ -23,7 +23,6 @@ import { BaseGanttRoot } from "@/components/issues/issue-layouts/gantt";
 import { KanBanLayout } from "@/components/issues/issue-layouts/kanban/roots/project-root";
 import { ListLayout } from "@/components/issues/issue-layouts/list/roots/project-root";
 import { ProjectSpreadsheetLayout } from "@/components/issues/issue-layouts/spreadsheet/roots/project-root";
-import { ProjectEmptyState } from "@/components/issues/issue-layouts/empty-states/project-issues";
 
 function EpicIssueLayout(props: { activeLayout: EIssueLayoutTypes | undefined }) {
   switch (props.activeLayout) {
@@ -81,14 +80,7 @@ function ProjectEpicsPage() {
       >
         {({ filter: epicWorkItemsFilter }) => (
           <div className="relative flex h-full w-full flex-col overflow-hidden">
-            {issues.getGroupIssueCount(undefined, undefined, false) === 0 && !epicWorkItemsFilter ? (
-              <div className="grid h-full w-full place-items-center">
-                <ProjectEmptyState />
-              </div>
-            ) : (
-              <EpicIssueLayout activeLayout={activeLayout} />
-            )}
-            {/* No peek overview for epics — drill-down only */}
+            <EpicIssueLayout activeLayout={activeLayout} />
           </div>
         )}
       </ProjectLevelWorkItemFiltersHOC>
