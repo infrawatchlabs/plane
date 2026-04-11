@@ -173,7 +173,7 @@ from .page.base import (
     PagesDescriptionViewSet,
     PageDuplicateEndpoint,
 )
-from .page.iw_page import WorkspacePageViewSet
+from .page.iw_workspace_page import WorkspacePageViewSet
 from .page.version import PageVersionEndpoint
 
 from .search.base import GlobalSearchEndpoint, SearchEndpoint
