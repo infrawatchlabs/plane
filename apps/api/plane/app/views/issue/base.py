@@ -11,6 +11,8 @@ from django.contrib.postgres.aggregates import ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import (
+    BooleanField,
+    Case,
     Count,
     Exists,
     F,
@@ -21,6 +23,7 @@ from django.db.models import (
     Subquery,
     UUIDField,
     Value,
+    When,
 )
 from django.db.models.functions import Coalesce
 from django.utils import timezone
@@ -1314,6 +1317,13 @@ class IssueDetailIdentifierEndpoint(BaseAPIView):
                     )
                 )
             )
+            .annotate(
+                is_epic=Case(
+                    When(type__is_epic=True, then=Value(True)),
+                    default=Value(False),
+                    output_field=BooleanField(),
+                )
+            )
         ).first()
 
         # Check if the issue exists
@@ -1354,4 +1364,7 @@ class IssueDetailIdentifierEndpoint(BaseAPIView):
 
         # Serialize the issue
         serializer = IssueDetailSerializer(issue, expand=self.expand)
-        return Response(serializer.data, status=status.HTTP_200_OK)
+        data = serializer.data
+        # Add is_epic flag from annotation
+        data["is_epic"] = getattr(issue, "is_epic", False)
+        return Response(data, status=status.HTTP_200_OK)
