@@ -4,25 +4,20 @@
  * See the LICENSE file for details.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { observer } from "mobx-react";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Plus, Home, Loader2, Trash2, Search, X } from "lucide-react";
+import { Plus, Home, Loader2, Trash2 } from "lucide-react";
 import { WikiIcon } from "@plane/propel/icons";
 import { ScrollArea } from "@plane/propel/scrollarea";
 import { cn } from "@plane/utils";
-import type { TPage } from "@plane/types";
 // components
 import { SidebarNavItem } from "@/components/sidebar/sidebar-navigation";
 import { AppSidebarToggleButton } from "@/components/sidebar/sidebar-toggle-button";
-// services
-import { WorkspacePageService } from "@/services/page/workspace-page.service";
 // store hooks
 import { EPageStoreType, usePageStore } from "@/plane-web/hooks/store";
 import { useAppRouter } from "@/hooks/use-app-router";
-
-const workspacePageService = new WorkspacePageService();
 
 // Helper to get emoji from page logo_props
 const getPageEmoji = (page: { logo_props?: { in_use?: string; emoji?: { value?: string } } }): string => {
@@ -46,10 +41,6 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
   });
   // states
   const [isCreating, setIsCreating] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
-  const [searchResults, setSearchResults] = useState<TPage[] | null>(null);
-  const [isSearching, setIsSearching] = useState(false);
-  const searchTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const slug = workspaceSlug?.toString() ?? "";
   const wikiBasePath = `/${slug}/wiki`;
@@ -61,43 +52,6 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
       fetchPagesList(slug);
     }
   }, [slug, fetchPagesList]);
-
-  // Debounced search
-  useEffect(() => {
-    if (!slug) return;
-
-    if (searchTimerRef.current) {
-      clearTimeout(searchTimerRef.current);
-    }
-
-    if (!searchQuery.trim()) {
-      setSearchResults(null);
-      setIsSearching(false);
-      return;
-    }
-
-    setIsSearching(true);
-    searchTimerRef.current = setTimeout(() => {
-      workspacePageService
-        .fetchAll(slug, { search: searchQuery.trim() })
-        .then((pages) => {
-          setSearchResults(pages);
-          return pages;
-        })
-        .catch(() => {
-          setSearchResults([]);
-        })
-        .finally(() => {
-          setIsSearching(false);
-        });
-    }, 300);
-
-    return () => {
-      if (searchTimerRef.current) {
-        clearTimeout(searchTimerRef.current);
-      }
-    };
-  }, [searchQuery, slug]);
 
   // Handle new page creation
   const handleCreatePage = useCallback(async () => {
@@ -136,14 +90,7 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
     [slug, removePage, pathname, wikiBasePath, router]
   );
 
-  const handleClearSearch = useCallback(() => {
-    setSearchQuery("");
-    setSearchResults(null);
-  }, []);
-
   const isInitLoading = loader === "init-loader";
-  const isShowingSearch = searchQuery.trim().length > 0;
-  const displayPages = isShowingSearch ? (searchResults ?? []) : pagesList;
 
   return (
     <div className="flex h-full w-full animate-fade-in flex-col">
@@ -173,27 +120,6 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
           )}
           <span>{isCreating ? "Creating..." : "New page"}</span>
         </button>
-
-        {/* Search input */}
-        <div className="relative">
-          <Search className="absolute top-1/2 left-2.5 size-3.5 -translate-y-1/2 text-placeholder" />
-          <input
-            type="text"
-            className="focus:border-primary w-full rounded-md border border-subtle bg-transparent py-1.5 pr-8 pl-8 text-13 text-primary placeholder:text-placeholder focus:outline-none"
-            placeholder="Search pages..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-          />
-          {searchQuery && (
-            <button
-              type="button"
-              className="absolute top-1/2 right-2 -translate-y-1/2 rounded p-0.5 text-placeholder hover:text-primary"
-              onClick={handleClearSearch}
-            >
-              <X className="size-3.5" />
-            </button>
-          )}
-        </div>
       </div>
 
       {/* Page list */}
@@ -204,39 +130,29 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
         rootClassName="size-full overflow-x-hidden overflow-y-auto"
         viewportClassName="flex flex-col gap-0.5 overflow-x-hidden h-full w-full overflow-y-auto px-3 pt-3 pb-0.5"
       >
-        {/* Home page link — hidden during search */}
-        {!isShowingSearch && (
-          <Link href={wikiBasePath}>
-            <SidebarNavItem isActive={isHomePath}>
-              <div className="flex items-center gap-1.5 py-[1px]">
-                <Home className="size-4 flex-shrink-0" />
-                <p className="text-13 leading-5 font-medium">Home</p>
-              </div>
-            </SidebarNavItem>
-          </Link>
-        )}
+        {/* Home page link */}
+        <Link href={wikiBasePath}>
+          <SidebarNavItem isActive={isHomePath}>
+            <div className="flex items-center gap-1.5 py-[1px]">
+              <Home className="size-4 flex-shrink-0" />
+              <p className="text-13 leading-5 font-medium">Home</p>
+            </div>
+          </SidebarNavItem>
+        </Link>
 
         {/* Workspace pages section */}
-        <div className={cn(!isShowingSearch && "mt-3")}>
+        <div className="mt-3">
           <div className="px-2 py-1.5">
-            {isShowingSearch ? (
-              <span className="text-13 font-semibold text-placeholder">
-                {isSearching
-                  ? "Searching..."
-                  : `${displayPages.length} result${displayPages.length !== 1 ? "s" : ""} for "${searchQuery}"`}
-              </span>
-            ) : (
-              <span className="text-13 font-semibold text-placeholder">Workspace</span>
-            )}
+            <span className="text-13 font-semibold text-placeholder">Workspace</span>
           </div>
 
-          {isInitLoading || (isShowingSearch && isSearching) ? (
+          {isInitLoading ? (
             <div className="flex items-center justify-center py-4">
               <Loader2 className="size-4 animate-spin text-placeholder" />
             </div>
-          ) : displayPages.length > 0 ? (
+          ) : pagesList.length > 0 ? (
             <div className="flex flex-col gap-0.5">
-              {displayPages.map((page) => {
+              {pagesList.map((page) => {
                 const pageId = page.id ?? "";
                 const pagePath = `${wikiBasePath}/${pageId}`;
                 const isActive = pathname === pagePath;
@@ -266,7 +182,7 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
             </div>
           ) : (
             <div className="px-2 py-4 text-center text-13 text-placeholder">
-              {isShowingSearch ? "No matching pages found." : "No pages yet. Create your first wiki page."}
+              No pages yet. Create your first wiki page.
             </div>
           )}
         </div>
