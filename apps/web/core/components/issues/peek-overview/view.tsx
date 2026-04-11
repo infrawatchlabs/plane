@@ -10,10 +10,11 @@ import { createPortal } from "react-dom";
 // plane imports
 import type { EditorRefApi } from "@plane/editor";
 import type { TNameDescriptionLoader } from "@plane/types";
-import { EIssueServiceType } from "@plane/types";
+import { EIssueServiceType, EIssuesStoreType } from "@plane/types";
 import { cn } from "@plane/utils";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
+import { IssuesStoreContext, useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import useKeypress from "@/hooks/use-keypress";
 import usePeekOverviewOutsideClickDetector from "@/hooks/use-peek-overview-outside-click";
 // local imports
@@ -64,11 +65,14 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   const issuePeekOverviewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorRefApi>(null);
   // store hooks
+  const storeType = useIssueStoreType();
+  const isEpic = storeType === EIssuesStoreType.EPIC;
+  const serviceType = isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES;
   const {
     setPeekIssue,
     isAnyModalOpen,
     issue: { getIssueById },
-  } = useIssueDetail();
+  } = useIssueDetail(serviceType);
   const { isAnyModalOpen: isAnyEpicModalOpen } = useIssueDetail(EIssueServiceType.EPICS);
   const issue = getIssueById(issueId);
   // remove peek id
@@ -170,6 +174,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
                 isSubmitting={isSubmitting}
                 disabled={disabled}
                 embedIssue={embedIssue}
+                isEpic={isEpic}
               />
               {/* content */}
               <div className="vertical-scrollbar relative scrollbar-md h-full w-full overflow-hidden overflow-y-auto">
@@ -269,5 +274,11 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
     </div>
   );
 
-  return <>{shouldUsePortal && portalContainer ? createPortal(content, portalContainer) : content}</>;
+  const wrappedContent = isEpic ? (
+    <IssuesStoreContext.Provider value={EIssuesStoreType.EPIC}>{content}</IssuesStoreContext.Provider>
+  ) : (
+    content
+  );
+
+  return <>{shouldUsePortal && portalContainer ? createPortal(wrappedContent, portalContainer) : wrappedContent}</>;
 });

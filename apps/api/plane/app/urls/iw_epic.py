@@ -9,6 +9,7 @@ from django.urls import path
 from plane.app.views import (
     IwEpicViewSet,
     IwEpicListEndpoint,
+    IssueActivityEndpoint,
     SubIssuesEndpoint,
     ProjectUserDisplayPropertyEndpoint,
 )
@@ -39,6 +40,18 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/sub-issues/",
         SubIssuesEndpoint.as_view(),
         name="project-epics-sub-issues",
+    ),
+    # Epic activity/history
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/history/",
+        IssueActivityEndpoint.as_view(),
+        name="project-epic-history",
+    ),
+    # Epic child work items (issues parented to this epic)
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/issues/",
+        SubIssuesEndpoint.as_view(),
+        name="project-epic-issues",
     ),
     # Epic user display properties
     path(

@@ -8,7 +8,7 @@ import React from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane ui
-import { WorkItemsIcon } from "@plane/propel/icons";
+import { EpicIcon, WorkItemsIcon } from "@plane/propel/icons";
 import { Breadcrumbs, Header } from "@plane/ui";
 // components
 import { BreadcrumbLink } from "@/components/common/breadcrumb-link";
@@ -34,6 +34,7 @@ export const WorkItemDetailsHeader = observer(function WorkItemDetailsHeader() {
   const issueDetails = issueId ? getIssueById(issueId.toString()) : undefined;
   const projectId = issueDetails ? issueDetails?.project_id : undefined;
   const projectDetails = projectId ? getProjectById(projectId?.toString()) : undefined;
+  const isEpic = issueDetails?.is_epic ?? false;
 
   if (!workspaceSlug || !projectId || !issueId) return null;
   return (
@@ -44,9 +45,19 @@ export const WorkItemDetailsHeader = observer(function WorkItemDetailsHeader() {
           <Breadcrumbs.Item
             component={
               <BreadcrumbLink
-                label="Work Items"
-                href={`/${workspaceSlug}/projects/${projectId}/issues/`}
-                icon={<WorkItemsIcon className="h-4 w-4 text-tertiary" />}
+                label={isEpic ? "Epics" : "Work Items"}
+                href={
+                  isEpic
+                    ? `/${workspaceSlug}/projects/${projectId}/epics/`
+                    : `/${workspaceSlug}/projects/${projectId}/issues/`
+                }
+                icon={
+                  isEpic ? (
+                    <EpicIcon className="h-4 w-4 text-tertiary" />
+                  ) : (
+                    <WorkItemsIcon className="h-4 w-4 text-tertiary" />
+                  )
+                }
               />
             }
           />

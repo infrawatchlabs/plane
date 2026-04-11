@@ -1,3 +1,4 @@
+/* eslint-disable promise/always-return */
 /**
  * Copyright (c) 2023-present Plane Software, Inc. and contributors
  * SPDX-License-Identifier: AGPL-3.0-only
@@ -14,7 +15,7 @@ import { CenterPanelIcon, CopyLinkIcon, FullScreenPanelIcon, SidePanelIcon } fro
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import { Tooltip } from "@plane/propel/tooltip";
 import type { TNameDescriptionLoader } from "@plane/types";
-import { EIssuesStoreType } from "@plane/types";
+import { EIssueServiceType, EIssuesStoreType } from "@plane/types";
 import { CustomSelect } from "@plane/ui";
 import { copyUrlToClipboard, generateWorkItemLink } from "@plane/utils";
 // hooks
@@ -65,6 +66,7 @@ export type PeekOverviewHeaderProps = {
   toggleEditIssueModal: (value: boolean) => void;
   handleRestoreIssue: () => Promise<void>;
   isSubmitting: TNameDescriptionLoader;
+  isEpic?: boolean;
 };
 
 export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader(props: PeekOverviewHeaderProps) {
@@ -84,19 +86,21 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
     toggleEditIssueModal,
     handleRestoreIssue,
     isSubmitting,
+    isEpic = false,
   } = props;
   // ref
   const parentRef = useRef<HTMLDivElement>(null);
   const { t } = useTranslation();
   // store hooks
   const { data: currentUser } = useUser();
+  const serviceType = isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES;
   const {
     issue: { getIssueById },
     setPeekIssue,
     removeIssue,
     archiveIssue,
     getIsIssuePeeked,
-  } = useIssueDetail();
+  } = useIssueDetail(serviceType);
   const { isMobile } = usePlatformOS();
   const { getProjectIdentifierById } = useProject();
   // derived values
@@ -114,6 +118,7 @@ export const IssuePeekOverviewHeader = observer(function IssuePeekOverviewHeader
     projectIdentifier,
     sequenceId: issueDetails?.sequence_id,
     isArchived,
+    isEpic,
   });
 
   const handleCopyText = (e: React.MouseEvent<HTMLButtonElement>) => {

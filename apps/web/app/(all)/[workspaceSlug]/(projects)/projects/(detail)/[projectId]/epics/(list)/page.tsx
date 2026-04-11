@@ -12,6 +12,7 @@ import { ISSUE_DISPLAY_FILTERS_BY_PAGE } from "@plane/constants";
 import { EIssueLayoutTypes, EIssuesStoreType } from "@plane/types";
 // components
 import { PageHead } from "@/components/core/page-title";
+import { IssuePeekOverview } from "@/components/issues/peek-overview";
 import { ProjectLevelWorkItemFiltersHOC } from "@/components/work-item-filters/filters-hoc/project-level";
 // hooks
 import { useIssues } from "@/hooks/store/use-issues";
@@ -81,6 +82,7 @@ function ProjectEpicsPage() {
         {({ filter: _epicWorkItemsFilter }) => (
           <div className="relative flex h-full w-full flex-col overflow-hidden">
             <EpicIssueLayout activeLayout={activeLayout} />
+            <IssuePeekOverview />
           </div>
         )}
       </ProjectLevelWorkItemFiltersHOC>

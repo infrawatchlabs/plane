@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 /**
  * Copyright (c) 2023-present Plane Software, Inc. and contributors
  * SPDX-License-Identifier: AGPL-3.0-only
@@ -40,14 +41,15 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
   const {
     issues: { restoreIssue },
   } = useIssues(EIssuesStoreType.ARCHIVED);
+  const issueStoreType = useIssueStoreType();
+  const storeType = issueStoreFromProps ?? issueStoreType;
+  const serviceType = storeType === EIssuesStoreType.EPIC ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES;
   const {
     peekIssue,
     setPeekIssue,
     issue: { fetchIssue },
     fetchActivities,
-  } = useIssueDetail();
-  const issueStoreType = useIssueStoreType();
-  const storeType = issueStoreFromProps ?? issueStoreType;
+  } = useIssueDetail(serviceType);
   const { issues } = useIssues(storeType);
 
   useWorkItemProperties(

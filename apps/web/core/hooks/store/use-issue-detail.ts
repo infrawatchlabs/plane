@@ -6,15 +6,27 @@
 
 import { useContext } from "react";
 import type { TIssueServiceType } from "@plane/types";
-import { EIssueServiceType } from "@plane/types";
+import { EIssueServiceType, EIssuesStoreType } from "@plane/types";
 // mobx store
 import { StoreContext } from "@/lib/store-context";
+// hooks
+import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 // types
 import type { IIssueDetail } from "@/plane-web/store/issue/issue-details/root.store";
 
-export const useIssueDetail = (serviceType: TIssueServiceType = EIssueServiceType.ISSUES): IIssueDetail => {
+export const useIssueDetail = (serviceType?: TIssueServiceType): IIssueDetail => {
   const context = useContext(StoreContext);
+  const storeType = useContext(IssuesStoreContext);
+
   if (context === undefined) throw new Error("useIssueDetail must be used within StoreProvider");
-  if (serviceType === EIssueServiceType.EPICS) return context.issue.epicDetail;
-  else return context.issue.issueDetail;
+
+  // If explicit service type provided, use it
+  if (serviceType !== undefined) {
+    return serviceType === EIssueServiceType.EPICS ? context.issue.epicDetail : context.issue.issueDetail;
+  }
+
+  // Otherwise, auto-detect from the IssuesStoreContext (set by epic/project pages)
+  if (storeType === EIssuesStoreType.EPIC) return context.issue.epicDetail;
+
+  return context.issue.issueDetail;
 };
