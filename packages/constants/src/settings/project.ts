@@ -114,12 +114,12 @@ export const PROJECT_SETTINGS_FLAT_MAP: TProjectSettingsItem[] = Object.values(P
 export const GROUPED_PROJECT_SETTINGS: Record<PROJECT_SETTINGS_CATEGORY, TProjectSettingsItem[]> = {
   [PROJECT_SETTINGS_CATEGORY.GENERAL]: [PROJECT_SETTINGS["general"], PROJECT_SETTINGS["members"]],
   [PROJECT_SETTINGS_CATEGORY.FEATURES]: [
+    PROJECT_SETTINGS["features_epics"],
     PROJECT_SETTINGS["features_cycles"],
     PROJECT_SETTINGS["features_modules"],
     PROJECT_SETTINGS["features_views"],
     PROJECT_SETTINGS["features_pages"],
     PROJECT_SETTINGS["features_intake"],
-    PROJECT_SETTINGS["features_epics"],
   ],
   [PROJECT_SETTINGS_CATEGORY.WORK_STRUCTURE]: [
     PROJECT_SETTINGS["states"],

@@ -28,6 +28,15 @@ type Props = {
 };
 
 const PROJECT_FEATURES_LIST = {
+  epics: {
+    key: "epics",
+    property: "is_issue_type_enabled",
+    title: "Epics",
+    description: "Group and track large features that span multiple work items.",
+    icon: <EpicIcon className="h-5 w-5 flex-shrink-0 text-tertiary" />,
+    isPro: false,
+    isEnabled: true,
+  },
   cycles: {
     key: "cycles",
     property: "cycle_view",
@@ -70,15 +79,6 @@ const PROJECT_FEATURES_LIST = {
     title: "Intake",
     description: "Consider and discuss work items before you add them to your project.",
     icon: <IntakeIcon className="h-5 w-5 flex-shrink-0 text-tertiary" />,
-    isPro: false,
-    isEnabled: true,
-  },
-  epics: {
-    key: "epics",
-    property: "is_issue_type_enabled",
-    title: "Epics",
-    description: "Group and track large features that span multiple work items.",
-    icon: <EpicIcon className="h-5 w-5 flex-shrink-0 text-tertiary" />,
     isPro: false,
     isEnabled: true,
   },
