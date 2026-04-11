@@ -212,6 +212,7 @@ export default {
   congrats: "Congrats!",
   open_project: "Open project",
   issues: "Work items",
+  epics: "Epics",
   cycles: "Cycles",
   modules: "Modules",
   pages: "Pages",
