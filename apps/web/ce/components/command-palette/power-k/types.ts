@@ -8,4 +8,4 @@ export type TPowerKContextTypeExtended = never;
 
 export type TPowerKPageTypeExtended = never;
 
-export type TPowerKSearchResultsKeysExtended = never;
+export type TPowerKSearchResultsKeysExtended = "wiki_page";
