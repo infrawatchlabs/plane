@@ -14,6 +14,7 @@ from plane.app.views import (
 )
 
 urlpatterns = [
+    # Project-level pages
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/pages-summary/",
         PageViewSet.as_view({"get": "summary"}),

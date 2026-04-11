@@ -62,6 +62,12 @@ class Page(BaseModel):
         verbose_name_plural = "Pages"
         db_table = "pages"
         ordering = ("-created_at",)
+        indexes = [
+            models.Index(
+                fields=["workspace", "is_global"],
+                name="page_workspace_is_global_idx",
+            ),
+        ]
 
     def __str__(self):
         """Return owner email and page name"""

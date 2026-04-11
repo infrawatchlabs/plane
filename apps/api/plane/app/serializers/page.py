@@ -60,14 +60,21 @@ class PageSerializer(BaseSerializer):
 
     def create(self, validated_data):
         labels = validated_data.pop("labels", None)
-        project_id = self.context["project_id"]
+        project_id = self.context.get("project_id")
         owned_by_id = self.context["owned_by_id"]
         description_json = self.context["description_json"]
         description_binary = self.context["description_binary"]
         description_html = self.context["description_html"]
 
-        # Get the workspace id from the project
-        project = Project.objects.get(pk=project_id)
+        if project_id:
+            # Project-scoped page: derive workspace from the project
+            project = Project.objects.get(pk=project_id)
+            workspace_id = project.workspace_id
+            is_global = False
+        else:
+            # Workspace-level page: workspace_id must be provided directly
+            workspace_id = self.context["workspace_id"]
+            is_global = True
 
         # Create the page
         page = Page.objects.create(
@@ -76,17 +83,19 @@ class PageSerializer(BaseSerializer):
             description_binary=description_binary,
             description_html=description_html,
             owned_by_id=owned_by_id,
-            workspace_id=project.workspace_id,
+            workspace_id=workspace_id,
+            is_global=is_global,
         )
 
-        # Create the project page
-        ProjectPage.objects.create(
-            workspace_id=page.workspace_id,
-            project_id=project_id,
-            page_id=page.id,
-            created_by_id=page.created_by_id,
-            updated_by_id=page.updated_by_id,
-        )
+        # Create the project page association only for project-scoped pages
+        if project_id:
+            ProjectPage.objects.create(
+                workspace_id=page.workspace_id,
+                project_id=project_id,
+                page_id=page.id,
+                created_by_id=page.created_by_id,
+                updated_by_id=page.updated_by_id,
+            )
 
         # Create page labels
         if labels is not None:

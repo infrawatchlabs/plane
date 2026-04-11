@@ -19,3 +19,4 @@ from .project import (
 )
 from .base import allow_permission, ROLE
 from .page import ProjectPagePermission
+from .iw_workspace_page import WorkspacePagePermission

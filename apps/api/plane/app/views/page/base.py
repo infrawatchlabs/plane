@@ -637,3 +637,5 @@ class PageDuplicateEndpoint(BaseAPIView):
         )
         serializer = PageDetailSerializer(page)
         return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+

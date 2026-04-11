@@ -15,12 +15,14 @@ import { usePowerK } from "@/hooks/store/use-power-k";
 import useDebounce from "@/hooks/use-debounce";
 // plane web imports
 import { PowerKModalNoSearchResultsCommand } from "@/plane-web/components/command-palette/power-k/search/no-results-command";
+import { WorkspacePageService } from "@/services/page/workspace-page.service";
 import { WorkspaceService } from "@/services/workspace.service";
 // local imports
 import type { TPowerKContext, TPowerKPageType } from "../../core/types";
 import { PowerKModalSearchResults } from "./search-results";
 // services init
 const workspaceService = new WorkspaceService();
+const workspacePageService = new WorkspacePageService();
 
 type Props = {
   activePage: TPowerKPageType | null;
@@ -48,19 +50,38 @@ export function PowerKModalSearchMenu(props: Props) {
     setIsSearching(true);
 
     if (debouncedSearchTerm) {
-      workspaceService
-        .searchWorkspace(workspaceSlug.toString(), {
+      const slug = workspaceSlug.toString();
+      // Search both workspace entities and wiki pages in parallel
+      Promise.all([
+        workspaceService.searchWorkspace(slug, {
           ...(projectId ? { project_id: projectId.toString() } : {}),
           search: debouncedSearchTerm,
           workspace_search: !projectId ? true : isWorkspaceLevel,
-        })
-        .then((results) => {
-          setResults(results);
-          const count = Object.keys(results.results).reduce(
-            (accumulator, key) => results.results[key as keyof typeof results.results]?.length + accumulator,
+        }),
+        workspacePageService.fetchAll(slug, { search: debouncedSearchTerm }).catch(() => []),
+      ])
+        .then(([searchResults, wikiPages]) => {
+          // Add wiki pages as a separate section in the results
+          const wikiPageResults = wikiPages.map((page) => ({
+            id: page.id ?? "",
+            name: page.name ?? "Untitled",
+            workspace__slug: slug,
+          }));
+          const mergedResults = {
+            ...searchResults,
+            results: {
+              ...searchResults.results,
+              wiki_page: wikiPageResults,
+            },
+          };
+          setResults(mergedResults as IWorkspaceSearchResults);
+          const count = Object.keys(mergedResults.results).reduce(
+            (accumulator, key) =>
+              (mergedResults.results[key as keyof typeof mergedResults.results] as unknown[])?.length + accumulator,
             0
           );
           setResultsCount(count);
+          return mergedResults;
         })
         .catch(() => {
           setResults(WORKSPACE_DEFAULT_SEARCH_RESULT);

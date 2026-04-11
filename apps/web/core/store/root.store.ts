@@ -67,6 +67,8 @@ import type { IThemeStore } from "./theme.store";
 import { ThemeStore } from "./theme.store";
 import type { IUserStore } from "./user";
 import { UserStore } from "./user";
+import type { IWorkspaceWikiPageStore } from "./wiki";
+import { WorkspaceWikiPageStore } from "./wiki";
 import type { IWorkspaceRootStore } from "./workspace";
 
 enableStaticRendering(typeof window === "undefined");
@@ -100,6 +102,7 @@ export class CoreRootStore {
   stickyStore: IStickyStore;
   editorAssetStore: IEditorAssetStore;
   workItemFilters: IWorkItemFilterStore;
+  workspaceWikiPages: IWorkspaceWikiPageStore;
   powerK: IPowerKStore;
 
   constructor() {
@@ -131,6 +134,7 @@ export class CoreRootStore {
     this.editorAssetStore = new EditorAssetStore();
     this.analytics = new AnalyticsStore();
     this.workItemFilters = new WorkItemFilterStore();
+    this.workspaceWikiPages = new WorkspaceWikiPageStore(this as unknown as RootStore);
     this.powerK = new PowerKStore();
   }
 
@@ -164,6 +168,7 @@ export class CoreRootStore {
     this.stickyStore = new StickyStore();
     this.editorAssetStore = new EditorAssetStore();
     this.workItemFilters = new WorkItemFilterStore();
+    this.workspaceWikiPages = new WorkspaceWikiPageStore(this as unknown as RootStore);
     this.powerK = new PowerKStore();
   }
 }
