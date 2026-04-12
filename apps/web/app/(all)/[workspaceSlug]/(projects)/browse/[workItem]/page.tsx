@@ -11,7 +11,7 @@ import useSWR from "swr";
 // plane imports
 import { useTranslation } from "@plane/i18n";
 import type { TIssue } from "@plane/types";
-import { EIssueServiceType } from "@plane/types";
+import { EIssueServiceType, EIssuesStoreType } from "@plane/types";
 import { Loader } from "@plane/ui";
 // assets
 import emptyIssueDark from "@/app/assets/empty-state/search/issues-dark.webp?url";
@@ -23,6 +23,7 @@ import { PageHead } from "@/components/core/page-title";
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
+import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 import { useAppRouter } from "@/hooks/use-app-router";
 // layouts
 import { ProjectAuthWrapper } from "@/layouts/auth-layout/project-wrapper";
@@ -129,12 +130,14 @@ export const IssueDetailsPage = observer(function IssueDetailsPage({ params }: R
       <PageHead title={pageTitle} />
       {workspaceSlug && projectId && issueId && (
         <ProjectAuthWrapper workspaceSlug={workspaceSlug} projectId={projectId}>
-          <WorkItemDetailRoot
-            workspaceSlug={workspaceSlug.toString()}
-            projectId={projectId.toString()}
-            issueId={issueId.toString()}
-            issue={issue}
-          />
+          <IssuesStoreContext.Provider value={issue?.is_epic ? EIssuesStoreType.EPIC : undefined}>
+            <WorkItemDetailRoot
+              workspaceSlug={workspaceSlug.toString()}
+              projectId={projectId.toString()}
+              issueId={issueId.toString()}
+              issue={issue}
+            />
+          </IssuesStoreContext.Provider>
         </ProjectAuthWrapper>
       )}
     </>
