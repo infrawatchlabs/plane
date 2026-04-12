@@ -10,6 +10,7 @@ import { useTranslation } from "@plane/i18n";
 import { LinkIcon, ViewsIcon, RelationPropertyIcon } from "@plane/propel/icons";
 // plane imports
 import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
+import { EIssueServiceType } from "@plane/types";
 // plane web imports
 import { WorkItemAdditionalWidgetActionButtons } from "@/plane-web/components/issues/issue-detail-widgets/action-buttons";
 // local imports
@@ -40,7 +41,7 @@ export function IssueDetailWidgetActionButtons(props: Props) {
           issueId={issueId}
           customButton={
             <IssueDetailWidgetButton
-              title={t("issue.add.sub_issue")}
+              title={issueServiceType === EIssueServiceType.EPICS ? t("add_work_item") : t("issue.add.sub_issue")}
               icon={<ViewsIcon className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />}
               disabled={disabled}
             />

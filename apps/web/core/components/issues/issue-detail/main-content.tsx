@@ -29,6 +29,7 @@ import { useDebouncedDuplicateIssues } from "@/plane-web/hooks/use-debounced-dup
 // services
 import { WorkItemVersionService } from "@/services/issue";
 // local imports
+import { EpicProgressSection } from "../issue-detail-widgets/epic-progress";
 import { IssueDetailWidgets } from "../issue-detail-widgets";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
@@ -156,6 +157,8 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           setIsSubmitting={(value) => setIsSubmitting(value)}
           workspaceSlug={workspaceSlug}
         />
+
+        {isEpic && <EpicProgressSection workspaceSlug={workspaceSlug} projectId={projectId} epicId={issueId} />}
 
         <div className="flex items-center justify-between gap-2">
           {currentUser && (

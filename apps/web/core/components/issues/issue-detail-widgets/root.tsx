@@ -7,8 +7,10 @@
 import React from "react";
 // plane imports
 import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
+import { EIssueServiceType } from "@plane/types";
 // local imports
 import { IssueDetailWidgetActionButtons } from "./action-buttons";
+import { EpicOverviewTabs } from "./epic-overview-tabs";
 import { IssueDetailWidgetCollapsibles } from "./issue-detail-widget-collapsibles";
 import { IssueDetailWidgetModals } from "./issue-detail-widget-modals";
 
@@ -33,6 +35,8 @@ export function IssueDetailWidgets(props: Props) {
     hideWidgets,
   } = props;
 
+  const isEpic = issueServiceType === EIssueServiceType.EPICS;
+
   return (
     <>
       <div className="flex flex-col space-y-4">
@@ -44,14 +48,24 @@ export function IssueDetailWidgets(props: Props) {
           issueServiceType={issueServiceType}
           hideWidgets={hideWidgets}
         />
-        <IssueDetailWidgetCollapsibles
-          workspaceSlug={workspaceSlug}
-          projectId={projectId}
-          issueId={issueId}
-          disabled={disabled}
-          issueServiceType={issueServiceType}
-          hideWidgets={hideWidgets}
-        />
+        {isEpic ? (
+          <EpicOverviewTabs
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+            issueId={issueId}
+            disabled={disabled}
+            issueServiceType={issueServiceType}
+          />
+        ) : (
+          <IssueDetailWidgetCollapsibles
+            workspaceSlug={workspaceSlug}
+            projectId={projectId}
+            issueId={issueId}
+            disabled={disabled}
+            issueServiceType={issueServiceType}
+            hideWidgets={hideWidgets}
+          />
+        )}
       </div>
       {renderWidgetModals && (
         <IssueDetailWidgetModals
