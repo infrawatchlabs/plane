@@ -137,6 +137,14 @@ class IssueListEndpoint(BaseAPIView):
                 .annotate(count=Func(F("id"), function="Count"))
                 .values("count")
             )
+            .annotate(
+                # IW: flag indicating whether this issue's parent is an epic
+                parent_is_epic=Case(
+                    When(parent__type__is_epic=True, then=Value(True)),
+                    default=Value(False),
+                    output_field=BooleanField(),
+                )
+            )
             .distinct()
         )
 
@@ -189,6 +197,9 @@ class IssueListEndpoint(BaseAPIView):
                 "is_draft",
                 "archived_at",
                 "deleted_at",
+                "parent_is_epic",
+                "parent__sequence_id",
+                "parent__project_id",
             )
             datetime_fields = ["created_at", "updated_at"]
             issues = user_timezone_converter(issues, datetime_fields, request.user.user_timezone)
@@ -248,6 +259,14 @@ class IssueViewSet(BaseViewSet):
                     .values("parent")
                     .annotate(count=Count("id"))
                     .values("count")
+                )
+            )
+            .annotate(
+                # IW: flag indicating whether this issue's parent is an epic
+                parent_is_epic=Case(
+                    When(parent__type__is_epic=True, then=Value(True)),
+                    default=Value(False),
+                    output_field=BooleanField(),
                 )
             )
         )
@@ -457,6 +476,9 @@ class IssueViewSet(BaseViewSet):
                     "is_draft",
                     "archived_at",
                     "deleted_at",
+                    "parent_is_epic",
+                    "parent__sequence_id",
+                    "parent__project_id",
                 )
                 .first()
             )

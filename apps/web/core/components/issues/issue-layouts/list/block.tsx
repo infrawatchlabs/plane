@@ -33,6 +33,7 @@ import { usePlatformOS } from "@/hooks/use-platform-os";
 import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/issue-identifier";
 import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-stats";
 // types
+import { ParentChip } from "../iw-parent-chip";
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
 import { calculateIdentifierWidth } from "../utils";
 import type { TRenderQuickActions } from "./list-view-types";
@@ -252,6 +253,8 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 </div>
               )}
 
+              <ParentChip issue={issue} />
+
               {/* sub-issues chevron */}
               <div className="grid size-4 flex-shrink-0 place-items-center">
                 {subIssuesCount > 0 && !isEpic && (
@@ -321,11 +324,16 @@ export const IssueBlock = observer(function IssueBlock(props: IssueBlockProps) {
                 isEpic={isEpic}
               />
               <div
+                role="toolbar"
                 className={cn("hidden", {
                   "md:flex": isSidebarCollapsed,
                   "lg:flex": !isSidebarCollapsed,
                 })}
                 onClick={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                onKeyDown={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
                 }}

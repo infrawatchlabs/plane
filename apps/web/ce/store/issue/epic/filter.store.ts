@@ -5,8 +5,8 @@
  */
 
 import type { TIssueGroupByOptions } from "@plane/types";
-import type { IProjectIssuesFilter } from "@/store/issue/project";
-import { ProjectIssuesFilter } from "@/store/issue/project";
+import type { IProjectIssuesFilter } from "@/store/issue/project/filter.store";
+import { ProjectIssuesFilter } from "@/store/issue/project/filter.store";
 import type { IIssueRootStore } from "@/store/issue/root.store";
 
 export type IProjectEpicsFilter = IProjectIssuesFilter;

@@ -127,6 +127,9 @@ def issue_on_results(
         "is_draft",
         "archived_at",
         "state__group",
+        "parent_is_epic",
+        "parent__sequence_id",
+        "parent__project_id",
     ]
 
     if group_by in FIELD_MAPPER:
