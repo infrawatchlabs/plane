@@ -30,7 +30,7 @@ def seed_epic_type(apps, schema_editor):
             ProjectIssueType.objects.get_or_create(
                 project=project,
                 issue_type=epic_type,
-                defaults={"level": 0, "is_default": False},
+                defaults={"level": 0, "is_default": False, "workspace": workspace},
             )
             # Enable issue types on the project
             if not project.is_issue_type_enabled:
