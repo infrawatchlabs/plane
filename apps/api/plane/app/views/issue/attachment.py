@@ -180,9 +180,11 @@ class IssueAttachmentV2Endpoint(BaseAPIView):
                 )
 
             storage = S3Storage(request=request)
+            # Use inline disposition so the browser displays the file
+            # instead of triggering a download that closes the tab
             presigned_url = storage.generate_presigned_url(
                 object_name=asset.asset.name,
-                disposition="attachment",
+                disposition="inline",
                 filename=asset.attributes.get("name"),
             )
             return HttpResponseRedirect(presigned_url)

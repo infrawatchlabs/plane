@@ -10,8 +10,11 @@ from plane.app.views import (
     IwEpicViewSet,
     IwEpicListEndpoint,
     IssueActivityEndpoint,
+    IssueAttachmentEndpoint,
+    IssueAttachmentV2Endpoint,
     IssueCommentViewSet,
     CommentReactionViewSet,
+    IssueLinkViewSet,
     IssueReactionViewSet,
     SubIssuesEndpoint,
     ProjectUserDisplayPropertyEndpoint,
@@ -87,6 +90,46 @@ urlpatterns = [
     ),
     # Comment reactions (shared — comments have their own IDs, not scoped to epics)
     # Note: comment reactions use /comments/<id>/reactions/ which is already defined globally
+    # Epic links
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/issue-links/",
+        IssueLinkViewSet.as_view({"get": "list", "post": "create"}),
+        name="project-epic-links",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/issue-links/<uuid:pk>/",
+        IssueLinkViewSet.as_view(
+            {
+                "get": "retrieve",
+                "put": "update",
+                "patch": "partial_update",
+                "delete": "destroy",
+            }
+        ),
+        name="project-epic-link-detail",
+    ),
+    # Epic attachments
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/issue-attachments/",
+        IssueAttachmentEndpoint.as_view(),
+        name="project-epic-attachments",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/issue-attachments/<uuid:pk>/",
+        IssueAttachmentEndpoint.as_view(),
+        name="project-epic-attachment-detail",
+    ),
+    # Epic attachments v2
+    path(
+        "assets/v2/workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/attachments/",
+        IssueAttachmentV2Endpoint.as_view(),
+        name="project-epic-attachments-v2",
+    ),
+    path(
+        "assets/v2/workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/attachments/<uuid:pk>/",
+        IssueAttachmentV2Endpoint.as_view(),
+        name="project-epic-attachment-v2-detail",
+    ),
     # Epic user display properties
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/epics-user-properties/",

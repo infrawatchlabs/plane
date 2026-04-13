@@ -285,7 +285,7 @@ export class IssueService extends APIService {
 
   async fetchIssueLinks(workspaceSlug: string, projectId: string, issueId: string): Promise<TIssueLink[]> {
     return this.get(
-      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/${this.serviceType === EIssueServiceType.EPICS ? "links" : "issue-links"}/`
+      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/issue-links/`
     )
       .then((response) => response?.data)
       .catch((error) => {
@@ -300,7 +300,7 @@ export class IssueService extends APIService {
     data: Partial<TIssueLink>
   ): Promise<TIssueLink> {
     return this.post(
-      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/${this.serviceType === EIssueServiceType.EPICS ? "links" : "issue-links"}/`,
+      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/issue-links/`,
       data
     )
       .then((response) => response?.data)
@@ -317,7 +317,7 @@ export class IssueService extends APIService {
     data: Partial<TIssueLink>
   ): Promise<TIssueLink> {
     return this.patch(
-      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/${this.serviceType === EIssueServiceType.EPICS ? "links" : "issue-links"}/${linkId}/`,
+      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/issue-links/${linkId}/`,
       data
     )
       .then((response) => response?.data)
@@ -328,7 +328,7 @@ export class IssueService extends APIService {
 
   async deleteIssueLink(workspaceSlug: string, projectId: string, issueId: string, linkId: string): Promise<any> {
     return this.delete(
-      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/${this.serviceType === EIssueServiceType.EPICS ? "links" : "issue-links"}/${linkId}/`
+      `/api/workspaces/${workspaceSlug}/projects/${projectId}/${this.serviceType}/${issueId}/issue-links/${linkId}/`
     )
       .then((response) => response?.data)
       .catch((error) => {
