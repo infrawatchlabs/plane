@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 /**
  * Copyright (c) 2023-present Plane Software, Inc. and contributors
  * SPDX-License-Identifier: AGPL-3.0-only
@@ -40,29 +41,45 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
   const {
     issues: { restoreIssue },
   } = useIssues(EIssuesStoreType.ARCHIVED);
-  const {
-    peekIssue,
-    setPeekIssue,
-    issue: { fetchIssue },
-    fetchActivities,
-  } = useIssueDetail();
   const issueStoreType = useIssueStoreType();
   const storeType = issueStoreFromProps ?? issueStoreType;
+  // Call both stores unconditionally (React hooks rule).
+  // Determine service type from the peeked issue, not page context.
+  const issueDetailStore = useIssueDetail(EIssueServiceType.ISSUES);
+  const epicDetailStore = useIssueDetail(EIssueServiceType.EPICS);
+  // peekIssue could be set on either store depending on context.
+  // Which store it was set on tells us whether the source was an epic list or a work items list.
+  const issueStorePeek = issueDetailStore.peekIssue;
+  const epicStorePeek = epicDetailStore.peekIssue;
+  const peekIssue = issueStorePeek ?? epicStorePeek;
+  const peekSourceIsEpicStore = !issueStorePeek && !!epicStorePeek;
+  // Check if peeked issue is an epic (it may already be in the shared store)
+  const peekIssueObj = peekIssue?.issueId ? issueDetailStore.issue.getIssueById(peekIssue.issueId) : undefined;
+  // Prefer explicit is_epic from issue data; fall back to which store originated the peek.
+  // Never fall back to page context (storeType) — that leaks epic context to child work items.
+  const isPeekEpic = peekIssueObj?.is_epic ?? peekSourceIsEpicStore;
+  const activeDetailStore = isPeekEpic ? epicDetailStore : issueDetailStore;
+  const {
+    issue: { fetchIssue },
+    fetchActivities,
+  } = activeDetailStore;
   const { issues } = useIssues(storeType);
 
   useWorkItemProperties(
     peekIssue?.projectId,
     peekIssue?.workspaceSlug,
     peekIssue?.issueId,
-    storeType === EIssuesStoreType.EPIC ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES
+    isPeekEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES
   );
   // state
   const [error, setError] = useState(false);
 
   const removeRoutePeekId = useCallback(() => {
-    setPeekIssue(undefined);
+    // Clear both stores to prevent stale peekIssue on the other store
+    issueDetailStore.setPeekIssue(undefined);
+    epicDetailStore.setPeekIssue(undefined);
     if (embedIssue) embedRemoveCurrentNotification?.();
-  }, [embedIssue, embedRemoveCurrentNotification, setPeekIssue]);
+  }, [embedIssue, embedRemoveCurrentNotification, issueDetailStore, epicDetailStore]);
 
   const issueOperations: TIssueOperations = useMemo(
     () => ({

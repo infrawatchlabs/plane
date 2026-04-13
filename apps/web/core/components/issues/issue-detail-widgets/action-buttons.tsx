@@ -10,6 +10,7 @@ import { useTranslation } from "@plane/i18n";
 import { LinkIcon, ViewsIcon, RelationPropertyIcon } from "@plane/propel/icons";
 // plane imports
 import type { TIssueServiceType, TWorkItemWidgets } from "@plane/types";
+import { EIssueServiceType } from "@plane/types";
 // plane web imports
 import { WorkItemAdditionalWidgetActionButtons } from "@/plane-web/components/issues/issue-detail-widgets/action-buttons";
 // local imports
@@ -33,9 +34,11 @@ export function IssueDetailWidgetActionButtons(props: Props) {
   // translation
   const { t } = useTranslation();
 
+  const isEpic = issueServiceType === EIssueServiceType.EPICS;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {!hideWidgets?.includes("sub-work-items") && (
+      {!isEpic && !hideWidgets?.includes("sub-work-items") && (
         <SubIssuesActionButton
           issueId={issueId}
           customButton={
@@ -49,7 +52,7 @@ export function IssueDetailWidgetActionButtons(props: Props) {
           issueServiceType={issueServiceType}
         />
       )}
-      {!hideWidgets?.includes("relations") && (
+      {!isEpic && !hideWidgets?.includes("relations") && (
         <RelationActionButton
           issueId={issueId}
           customButton={

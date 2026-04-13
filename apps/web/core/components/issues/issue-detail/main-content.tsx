@@ -9,7 +9,7 @@ import { observer } from "mobx-react";
 // plane imports
 import type { EditorRefApi } from "@plane/editor";
 import type { TNameDescriptionLoader } from "@plane/types";
-import { EFileAssetType, EIssueServiceType } from "@plane/types";
+import { EFileAssetType, EIssueServiceType, EIssuesStoreType } from "@plane/types";
 import { getTextContent } from "@plane/utils";
 // components
 import { DescriptionVersionsRoot } from "@/components/core/description-versions";
@@ -18,6 +18,7 @@ import { DescriptionInput } from "@/components/editor/rich-text/description-inpu
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
+import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { useUser } from "@/hooks/store/user";
 import useReloadConfirmations from "@/hooks/use-reload-confirmation";
 import useSize from "@/hooks/use-window-size";
@@ -28,6 +29,7 @@ import { useDebouncedDuplicateIssues } from "@/plane-web/hooks/use-debounced-dup
 // services
 import { WorkItemVersionService } from "@/services/issue";
 // local imports
+import { EpicProgressSection } from "../issue-detail-widgets/epic-progress";
 import { IssueDetailWidgets } from "../issue-detail-widgets";
 import { NameDescriptionUpdateStatus } from "../issue-update-status";
 import { PeekOverviewProperties } from "../peek-overview/properties";
@@ -58,6 +60,9 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
   const windowSize = useSize();
   const { data: currentUser } = useUser();
   const { getUserDetails } = useMember();
+  const storeType = useIssueStoreType();
+  const isEpic = storeType === EIssuesStoreType.EPIC;
+  const issueServiceType = isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES;
   const {
     issue: { getIssueById },
     peekIssue,
@@ -153,6 +158,8 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
           workspaceSlug={workspaceSlug}
         />
 
+        {isEpic && <EpicProgressSection workspaceSlug={workspaceSlug} projectId={projectId} epicId={issueId} />}
+
         <div className="flex items-center justify-between gap-2">
           {currentUser && (
             <IssueReaction
@@ -174,10 +181,10 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
                 isRestoreDisabled: !isEditable || isArchived,
               }}
               fetchHandlers={{
-                listDescriptionVersions: (issueId) =>
-                  workItemVersionService.listDescriptionVersions(workspaceSlug, projectId, issueId),
-                retrieveDescriptionVersion: (issueId, versionId) =>
-                  workItemVersionService.retrieveDescriptionVersion(workspaceSlug, projectId, issueId, versionId),
+                listDescriptionVersions: (workItemId) =>
+                  workItemVersionService.listDescriptionVersions(workspaceSlug, projectId, workItemId),
+                retrieveDescriptionVersion: (workItemId, versionId) =>
+                  workItemVersionService.retrieveDescriptionVersion(workspaceSlug, projectId, workItemId, versionId),
               }}
               handleRestore={(descriptionHTML) => editorRef.current?.setEditorValue(descriptionHTML, true)}
               projectId={projectId}
@@ -193,7 +200,7 @@ export const IssueMainContent = observer(function IssueMainContent(props: Props)
         issueId={issueId}
         disabled={!isEditable || isArchived}
         renderWidgetModals={!isPeekModeActive}
-        issueServiceType={EIssueServiceType.ISSUES}
+        issueServiceType={issueServiceType}
       />
 
       {windowSize[0] < 768 && (

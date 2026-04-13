@@ -30,6 +30,7 @@ export interface IPartialProject {
   module_view: boolean;
   page_view: boolean;
   inbox_view: boolean;
+  is_issue_type_enabled: boolean;
   guest_view_all_features?: boolean;
   project_lead?: IUserLite | string | null;
   network?: number;
@@ -156,6 +157,7 @@ export type TProjectIssuesSearchParams = {
   workspace_search: boolean;
   target_date?: string;
   epic?: boolean;
+  epic_only?: boolean;
 };
 
 export interface ISearchIssueResponse {

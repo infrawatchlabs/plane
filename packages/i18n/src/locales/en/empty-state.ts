@@ -47,6 +47,12 @@ export default {
         "Work items are the building blocks of your project — assign owners, set priorities, and track progress easily.",
       cta_primary: "Create your first work item",
     },
+    epics: {
+      title: "Create an epic to organize larger goals.",
+      description:
+        "Epics let you group related work items into larger initiatives that span multiple cycles and modules.",
+      cta_primary: "Create your first epic",
+    },
     cycles: {
       title: "Group and timebox your work in Cycles.",
       description:

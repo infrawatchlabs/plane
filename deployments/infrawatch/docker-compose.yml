@@ -173,6 +173,8 @@ services:
     restart: unless-stopped
     environment:
       <<: *minio-env
+      # Allow MinIO to validate presigned URLs generated with the external proxy hostname
+      MINIO_SERVER_URL: ${MINIO_SERVER_URL:-http://${APP_DOMAIN:-localhost}}
     volumes:
       - ./data/minio:/export
 

@@ -70,6 +70,9 @@ services:
     environment:
       MINIO_ROOT_USER: access-key
       MINIO_ROOT_PASSWORD: secret-key
+      # Allow MinIO to validate presigned URLs generated with the external proxy hostname
+      MINIO_SERVER_URL: https://plane.orb.local
+      MINIO_BROWSER_REDIRECT_URL: http://minio.plane.orb.local:9090
     networks:
       - iw-dev
 

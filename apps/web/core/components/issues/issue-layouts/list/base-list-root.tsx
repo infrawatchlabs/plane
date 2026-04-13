@@ -1,3 +1,4 @@
+/* eslint-disable no-shadow */
 /**
  * Copyright (c) 2023-present Plane Software, Inc. and contributors
  * SPDX-License-Identifier: AGPL-3.0-only
@@ -11,7 +12,8 @@ import { useParams } from "next/navigation";
 // plane constants
 import { EIssueFilterType, EUserPermissions, EUserPermissionsLevel } from "@plane/constants";
 // types
-import type { EIssuesStoreType, GroupByColumnTypes, TGroupedIssues, TIssueKanbanFilters } from "@plane/types";
+import { EIssuesStoreType } from "@plane/types";
+import type { GroupByColumnTypes, TGroupedIssues, TIssueKanbanFilters } from "@plane/types";
 import { EIssueLayoutTypes } from "@plane/types";
 // constants
 // hooks
@@ -54,10 +56,11 @@ export const BaseListRoot = observer(function BaseListRoot(props: IBaseListRoot)
     addIssuesToView,
     canEditPropertiesBasedOnProject,
     isCompletedCycle = false,
-    isEpic = false,
+    isEpic: isEpicProp,
   } = props;
   // router
   const storeType = useIssueStoreType() as ListStoreType;
+  const isEpic = isEpicProp ?? storeType === EIssuesStoreType.EPIC;
   //stores
   const { issuesFilter, issues } = useIssues(storeType);
   const {

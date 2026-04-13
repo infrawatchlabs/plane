@@ -72,6 +72,13 @@ export const PROJECT_SETTINGS: Record<TProjectSettingsTabs, TProjectSettingsItem
     access: [EUserProjectRoles.ADMIN],
     highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/features/intake/`,
   },
+  features_epics: {
+    key: "features_epics",
+    i18n_label: "project_settings.features.epics.short_title",
+    href: `/features/epics`,
+    access: [EUserProjectRoles.ADMIN],
+    highlight: (pathname: string, baseUrl: string) => pathname === `${baseUrl}/features/epics/`,
+  },
   states: {
     key: "states",
     i18n_label: "common.states",
@@ -107,6 +114,7 @@ export const PROJECT_SETTINGS_FLAT_MAP: TProjectSettingsItem[] = Object.values(P
 export const GROUPED_PROJECT_SETTINGS: Record<PROJECT_SETTINGS_CATEGORY, TProjectSettingsItem[]> = {
   [PROJECT_SETTINGS_CATEGORY.GENERAL]: [PROJECT_SETTINGS["general"], PROJECT_SETTINGS["members"]],
   [PROJECT_SETTINGS_CATEGORY.FEATURES]: [
+    PROJECT_SETTINGS["features_epics"],
     PROJECT_SETTINGS["features_cycles"],
     PROJECT_SETTINGS["features_modules"],
     PROJECT_SETTINGS["features_views"],

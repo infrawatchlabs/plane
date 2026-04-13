@@ -66,11 +66,16 @@ class IssueSearchEndpoint(BaseAPIView):
 
     def filter_root_issues_only(self, issue_id: str, issues: QuerySet) -> QuerySet:
         """
-        Filter root issues only
+        Filter root issues only, excluding epics
         """
         issue = Issue.issue_objects.filter(pk=issue_id).first()
         if issue:
-            issues = issues.filter(~Q(pk=issue_id), parent__isnull=True)
+            issues = issues.filter(
+                ~Q(pk=issue_id),
+                parent__isnull=True,
+            ).exclude(
+                type__is_epic=True,
+            )
         if issue.parent:
             issues = issues.filter(~Q(pk=issue.parent_id))
         return issues
@@ -106,6 +111,7 @@ class IssueSearchEndpoint(BaseAPIView):
         sub_issue = request.query_params.get("sub_issue", "false")
         target_date = request.query_params.get("target_date", True)
         issue_id = request.query_params.get("issue_id", False)
+        epic_only = request.query_params.get("epic_only", "false")
 
         issues = Issue.issue_objects.filter(
             workspace__slug=slug,
@@ -137,6 +143,9 @@ class IssueSearchEndpoint(BaseAPIView):
 
         if target_date == "none":
             issues = self.filter_issues_without_target_date(issues)
+
+        if epic_only == "true":
+            issues = issues.filter(type__is_epic=True)
 
         if ProjectMember.objects.filter(
             project_id=project_id, member=self.request.user, is_active=True, role=5
