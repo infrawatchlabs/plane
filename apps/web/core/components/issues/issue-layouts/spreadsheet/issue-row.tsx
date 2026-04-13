@@ -35,7 +35,7 @@ import { usePlatformOS } from "@/hooks/use-platform-os";
 import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/issue-identifier";
 // local components
 import type { TRenderQuickActions } from "../list/list-view-types";
-import { ParentChip } from "../parent-chip";
+import { ParentChip } from "../iw-parent-chip";
 import { isIssueNew } from "../utils";
 import { IssueColumn } from "./issue-column";
 

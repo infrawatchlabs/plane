@@ -36,7 +36,7 @@ import { IssueIdentifier } from "@/plane-web/components/issues/issue-details/iss
 // local components
 import { IssueStats } from "@/plane-web/components/issues/issue-layouts/issue-stats";
 import type { TRenderQuickActions } from "../list/list-view-types";
-import { ParentChip } from "../parent-chip";
+import { ParentChip } from "../iw-parent-chip";
 import { IssueProperties } from "../properties/all-properties";
 import { WithDisplayPropertiesHOC } from "../properties/with-display-properties-HOC";
 
