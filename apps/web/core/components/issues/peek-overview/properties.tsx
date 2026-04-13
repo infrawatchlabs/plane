@@ -7,6 +7,7 @@
 import { observer } from "mobx-react";
 // i18n
 import { useTranslation } from "@plane/i18n";
+import { EIssuesStoreType } from "@plane/types";
 // ui icons
 import {
   CycleIcon,
@@ -36,6 +37,7 @@ import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
 import { useProjectState } from "@/hooks/store/use-project-state";
 // plane web components
+import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import { WorkItemAdditionalSidebarProperties } from "@/plane-web/components/issues/issue-details/additional-properties";
 import { IssueParentSelectRoot } from "@/plane-web/components/issues/issue-details/parent-select-root";
 import { DateAlert } from "@/plane-web/components/issues/issue-details/sidebar/date-alert";
@@ -58,6 +60,8 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
   const { workspaceSlug, projectId, issueId, issueOperations, disabled } = props;
   const { t } = useTranslation();
   // store hooks
+  const storeType = useIssueStoreType();
+  const isEpic = storeType === EIssuesStoreType.EPIC;
   const { getProjectById } = useProject();
   const {
     issue: { getIssueById },
@@ -87,12 +91,12 @@ export const PeekOverviewProperties = observer(function PeekOverviewProperties(p
             value={issue?.state_id}
             onChange={(val) => issueOperations.update(workspaceSlug, projectId, issueId, { state_id: val })}
             projectId={projectId}
-            disabled={disabled}
+            disabled={disabled || isEpic}
             buttonVariant="transparent-with-text"
             className="group w-full grow"
             buttonContainerClassName="w-full text-left h-7.5"
             buttonClassName={`text-body-xs-medium ${issue?.state_id ? "" : "text-placeholder"}`}
-            dropdownArrow
+            dropdownArrow={!isEpic}
             dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
           />
         </SidebarPropertyListItem>

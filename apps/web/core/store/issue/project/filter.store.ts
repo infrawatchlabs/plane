@@ -19,6 +19,7 @@ import type {
   IssuePaginationOptions,
   TWorkItemFilterExpression,
   TSupportedFilterForUpdate,
+  TIssueGroupByOptions,
 } from "@plane/types";
 import { EIssuesStoreType } from "@plane/types";
 import { handleIssueQueryParamsByLayout } from "@plane/utils";
@@ -167,6 +168,14 @@ export class ProjectIssuesFilter extends IssueFilterHelperStore implements IProj
   };
 
   /**
+   * Returns the default group_by value when switching to kanban layout.
+   * Override in subclasses (e.g., epics) to use a different default grouping.
+   */
+  protected getDefaultKanbanGroupBy(): TIssueGroupByOptions {
+    return "state";
+  }
+
+  /**
    * NOTE: This method is designed as a fallback function for the work item filter store.
    * Only use this method directly when initializing filter instances.
    * For regular filter updates, use this method as a fallback function for the work item filter store methods instead.
@@ -220,10 +229,11 @@ export class ProjectIssuesFilter extends IssueFilterHelperStore implements IProj
             _filters.displayFilters.sub_group_by = null;
             updatedDisplayFilters.sub_group_by = null;
           }
-          // set group_by to state if layout is switched to kanban and group_by is null
+          // set group_by to default if layout is switched to kanban and group_by is null
           if (_filters.displayFilters.layout === "kanban" && _filters.displayFilters.group_by === null) {
-            _filters.displayFilters.group_by = "state";
-            updatedDisplayFilters.group_by = "state";
+            const defaultGroupBy = this.getDefaultKanbanGroupBy();
+            _filters.displayFilters.group_by = defaultGroupBy;
+            updatedDisplayFilters.group_by = defaultGroupBy;
           }
 
           runInAction(() => {

@@ -93,12 +93,12 @@ export const IssueDetailsSidebar = observer(function IssueDetailsSidebar(props: 
                 value={issue?.state_id}
                 onChange={(val) => issueOperations.update(workspaceSlug, projectId, issueId, { state_id: val })}
                 projectId={projectId?.toString() ?? ""}
-                disabled={!isEditable}
+                disabled={!isEditable || !!issue.is_epic}
                 buttonVariant="transparent-with-text"
                 className="group w-full grow"
                 buttonContainerClassName="w-full text-left h-7.5"
                 buttonClassName="text-body-xs-regular"
-                dropdownArrow
+                dropdownArrow={!issue.is_epic}
                 dropdownArrowClassName="h-3.5 w-3.5 hidden group-hover:inline"
               />
             </SidebarPropertyListItem>

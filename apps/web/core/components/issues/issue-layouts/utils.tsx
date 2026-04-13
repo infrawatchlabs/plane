@@ -4,6 +4,8 @@
  * See the LICENSE file for details.
  */
 
+/* eslint-disable no-shadow -- pre-existing upstream shadows (function params vs module-level exports) */
+
 import type { CSSProperties } from "react";
 import { extractInstruction } from "@atlaskit/pragmatic-drag-and-drop-hitbox/tree-item";
 import { clone, isNil, pull, uniq, concat } from "lodash-es";
@@ -70,9 +72,7 @@ export const isWorkspaceLevel = (type: EIssuesStoreType) =>
     EIssuesStoreType.TEAM_VIEW,
     EIssuesStoreType.TEAM_PROJECT_WORK_ITEMS,
     EIssuesStoreType.WORKSPACE_DRAFT,
-  ].includes(type)
-    ? true
-    : false;
+  ].includes(type);
 
 type TGetGroupByColumns = {
   groupBy: GroupByColumnTypes | null;
@@ -227,10 +227,11 @@ const getStateColumns = ({ projectId }: TGetColumns): IGroupByColumn[] | undefin
 
 const getStateGroupColumns = (): IGroupByColumn[] => {
   const stateGroups = STATE_GROUPS;
-  // map state groups to group by columns
+  // map state groups to group by columns, using defaultStateName for friendlier labels
+  // (e.g., "Todo" instead of "Unstarted", "In Progress" instead of "Started")
   return Object.values(stateGroups).map((stateGroup) => ({
     id: stateGroup.key,
-    name: stateGroup.label,
+    name: stateGroup.defaultStateName,
     icon: (
       <div className="size-4 rounded-full">
         <StateGroupIcon stateGroup={stateGroup.key} size={EIconSize.LG} />
