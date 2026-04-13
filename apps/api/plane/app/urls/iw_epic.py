@@ -10,6 +10,9 @@ from plane.app.views import (
     IwEpicViewSet,
     IwEpicListEndpoint,
     IssueActivityEndpoint,
+    IssueCommentViewSet,
+    CommentReactionViewSet,
+    IssueReactionViewSet,
     SubIssuesEndpoint,
     ProjectUserDisplayPropertyEndpoint,
 )
@@ -53,6 +56,37 @@ urlpatterns = [
         SubIssuesEndpoint.as_view(),
         name="project-epic-issues",
     ),
+    # Epic comments
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/comments/",
+        IssueCommentViewSet.as_view({"get": "list", "post": "create"}),
+        name="project-epic-comments",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/comments/<uuid:pk>/",
+        IssueCommentViewSet.as_view(
+            {
+                "get": "retrieve",
+                "put": "update",
+                "patch": "partial_update",
+                "delete": "destroy",
+            }
+        ),
+        name="project-epic-comment-detail",
+    ),
+    # Epic reactions
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/reactions/",
+        IssueReactionViewSet.as_view({"get": "list", "post": "create"}),
+        name="project-epic-reactions",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:issue_id>/reactions/<str:reaction_code>/",
+        IssueReactionViewSet.as_view({"delete": "destroy"}),
+        name="project-epic-reaction-delete",
+    ),
+    # Comment reactions (shared — comments have their own IDs, not scoped to epics)
+    # Note: comment reactions use /comments/<id>/reactions/ which is already defined globally
     # Epic user display properties
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/epics-user-properties/",

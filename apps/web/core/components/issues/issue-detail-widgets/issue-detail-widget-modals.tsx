@@ -8,6 +8,7 @@ import React from "react";
 import { observer } from "mobx-react";
 import { TOAST_TYPE, setToast } from "@plane/propel/toast";
 import type { ISearchIssueResponse, TIssue, TIssueServiceType, TWorkItemWidgets } from "@plane/types";
+import { EIssueServiceType, EIssuesStoreType } from "@plane/types";
 // components
 import { ExistingIssuesListModal } from "@/components/core/modals/existing-issues-list-modal";
 // hooks
@@ -172,6 +173,7 @@ export const IssueDetailWidgetModals = observer(function IssueDetailWidgetModals
           onClose={handleCreateUpdateModalClose}
           onSubmit={handleCreateUpdateModalOnSubmit}
           isProjectSelectionDisabled
+          storeType={issueServiceType === EIssueServiceType.EPICS ? EIssuesStoreType.PROJECT : undefined}
         />
       )}
 

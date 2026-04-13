@@ -66,11 +66,16 @@ class IssueSearchEndpoint(BaseAPIView):
 
     def filter_root_issues_only(self, issue_id: str, issues: QuerySet) -> QuerySet:
         """
-        Filter root issues only
+        Filter root issues only, excluding epics
         """
         issue = Issue.issue_objects.filter(pk=issue_id).first()
         if issue:
-            issues = issues.filter(~Q(pk=issue_id), parent__isnull=True)
+            issues = issues.filter(
+                ~Q(pk=issue_id),
+                parent__isnull=True,
+            ).exclude(
+                type__is_epic=True,
+            )
         if issue.parent:
             issues = issues.filter(~Q(pk=issue.parent_id))
         return issues

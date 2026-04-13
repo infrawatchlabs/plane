@@ -8,7 +8,7 @@ import { useEffect } from "react";
 import { observer } from "mobx-react";
 // plane imports
 import type { EditorRefApi } from "@plane/editor";
-import { EFileAssetType } from "@plane/types";
+import { EFileAssetType, EIssuesStoreType } from "@plane/types";
 import type { TNameDescriptionLoader } from "@plane/types";
 // components
 import { getTextContent } from "@plane/utils";
@@ -20,6 +20,7 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useMember } from "@/hooks/store/use-member";
 import { useProject } from "@/hooks/store/use-project";
 import { useUser } from "@/hooks/store/user";
+import { useIssueStoreType } from "@/hooks/use-issue-layout-store";
 import useReloadConfirmations from "@/hooks/use-reload-confirmation";
 // plane web components
 import { DeDupeIssuePopoverRoot } from "@/plane-web/components/de-dupe/duplicate-popover";
@@ -32,6 +33,7 @@ import { WorkItemVersionService } from "@/services/issue";
 import type { TIssueOperations } from "../issue-detail";
 import { IssueParentDetail } from "../issue-detail/parent";
 import { IssueReaction } from "../issue-detail/reactions";
+import { EpicProgressSection } from "../issue-detail-widgets/epic-progress";
 import { IssueTitleInput } from "../title-input";
 // services init
 const workItemVersionService = new WorkItemVersionService();
@@ -53,6 +55,8 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
     props;
   // store hooks
   const { data: currentUser } = useUser();
+  const storeType = useIssueStoreType();
+  const isEpic = storeType === EIssuesStoreType.EPIC;
   const {
     issue: { getIssueById },
   } = useIssueDetail();
@@ -152,6 +156,8 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
         workspaceSlug={workspaceSlug}
       />
 
+      {isEpic && <EpicProgressSection workspaceSlug={workspaceSlug} projectId={issue.project_id} epicId={issueId} />}
+
       <div className="flex items-center justify-between gap-2">
         {currentUser && (
           <IssueReaction
@@ -172,17 +178,17 @@ export const PeekOverviewIssueDetails = observer(function PeekOverviewIssueDetai
               isRestoreDisabled: disabled || isArchived,
             }}
             fetchHandlers={{
-              listDescriptionVersions: (issueId) =>
+              listDescriptionVersions: (workItemId) =>
                 workItemVersionService.listDescriptionVersions(
                   workspaceSlug,
                   issue.project_id?.toString() ?? "",
-                  issueId
+                  workItemId
                 ),
-              retrieveDescriptionVersion: (issueId, versionId) =>
+              retrieveDescriptionVersion: (workItemId, versionId) =>
                 workItemVersionService.retrieveDescriptionVersion(
                   workspaceSlug,
                   issue.project_id?.toString() ?? "",
-                  issueId,
+                  workItemId,
                   versionId
                 ),
             }}

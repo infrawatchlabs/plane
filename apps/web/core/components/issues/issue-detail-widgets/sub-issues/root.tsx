@@ -51,6 +51,7 @@ export const SubIssuesCollapsible = observer(function SubIssuesCollapsible(props
         parentIssueId={issueId}
         disabled={disabled}
         issueServiceType={issueServiceType}
+        alwaysVisible
       />
     </Collapsible>
   );

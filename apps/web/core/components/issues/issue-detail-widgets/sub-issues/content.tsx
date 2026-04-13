@@ -23,12 +23,21 @@ type Props = {
   parentIssueId: string;
   disabled: boolean;
   issueServiceType?: TIssueServiceType;
+  /** When true, always render content without waiting for issue_visibility check */
+  alwaysVisible?: boolean;
 };
 
 type TIssueCrudState = { toggle: boolean; parentIssueId: string | undefined; issue: TIssue | undefined };
 
 export const SubIssuesCollapsibleContent = observer(function SubIssuesCollapsibleContent(props: Props) {
-  const { workspaceSlug, projectId, parentIssueId, disabled, issueServiceType = EIssueServiceType.ISSUES } = props;
+  const {
+    workspaceSlug,
+    projectId,
+    parentIssueId,
+    disabled,
+    issueServiceType = EIssueServiceType.ISSUES,
+    alwaysVisible = false,
+  } = props;
   // state
   const [issueCrudState, setIssueCrudState] = useState<{
     create: TIssueCrudState;
@@ -114,7 +123,7 @@ export const SubIssuesCollapsibleContent = observer(function SubIssuesCollapsibl
 
   return (
     <>
-      {subIssueHelpers.issue_visibility.includes(parentIssueId) && (
+      {(alwaysVisible || subIssueHelpers.issue_visibility.includes(parentIssueId)) && (
         <SubIssuesListRoot
           storeType={EIssuesStoreType.PROJECT}
           workspaceSlug={workspaceSlug}

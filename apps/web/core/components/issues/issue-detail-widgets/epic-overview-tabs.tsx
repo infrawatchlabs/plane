@@ -78,6 +78,7 @@ export const EpicOverviewTabs = observer(function EpicOverviewTabs(props: Props)
             parentIssueId={issueId}
             disabled={disabled}
             issueServiceType={issueServiceType}
+            alwaysVisible
           />
         )}
         {activeTab === "relations" && (

@@ -34,14 +34,16 @@ export function IssueDetailWidgetActionButtons(props: Props) {
   // translation
   const { t } = useTranslation();
 
+  const isEpic = issueServiceType === EIssueServiceType.EPICS;
+
   return (
     <div className="flex flex-wrap items-center gap-2">
-      {!hideWidgets?.includes("sub-work-items") && (
+      {!isEpic && !hideWidgets?.includes("sub-work-items") && (
         <SubIssuesActionButton
           issueId={issueId}
           customButton={
             <IssueDetailWidgetButton
-              title={issueServiceType === EIssueServiceType.EPICS ? t("add_work_item") : t("issue.add.sub_issue")}
+              title={t("issue.add.sub_issue")}
               icon={<ViewsIcon className="h-3.5 w-3.5 flex-shrink-0" strokeWidth={2} />}
               disabled={disabled}
             />
@@ -50,7 +52,7 @@ export function IssueDetailWidgetActionButtons(props: Props) {
           issueServiceType={issueServiceType}
         />
       )}
-      {!hideWidgets?.includes("relations") && (
+      {!isEpic && !hideWidgets?.includes("relations") && (
         <RelationActionButton
           issueId={issueId}
           customButton={

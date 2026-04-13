@@ -24,7 +24,7 @@ type Props = {
  * but use our own labels: Backlog, Todo, In Progress, Done, Cancelled.
  */
 const EPIC_STATES = [
-  { key: "backlog" as const, label: "Backlog", color: "#d9d9d9" },
+  { key: "backlog" as const, label: "Backlog", color: "#a3a3a3" },
   { key: "unstarted" as const, label: "Todo", color: "#3f76ff" },
   { key: "started" as const, label: "In Progress", color: "#f59e0b" },
   { key: "completed" as const, label: "Done", color: "#16a34a" },
@@ -46,11 +46,11 @@ export const EpicProgressSection = observer(function EpicProgressSection(props: 
   if (!totalCount) return null;
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-3 py-2">
       {/* Header */}
       <div className="flex items-center gap-1.5">
         <span className="text-sm font-medium text-primary">Progress</span>
-        <Tooltip tooltipContent="Progress is calculated based on the state groups of child work items.">
+        <Tooltip tooltipContent="Progress is based on state groups of child work items.">
           <InfoIcon className="h-3.5 w-3.5 cursor-help text-tertiary" />
         </Tooltip>
       </div>
@@ -59,17 +59,15 @@ export const EpicProgressSection = observer(function EpicProgressSection(props: 
       <ProgressBar distribution={distribution} totalCount={totalCount} />
 
       {/* Legend */}
-      <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-2">
         {EPIC_STATES.map((state) => {
           const count = distribution?.[state.key]?.length ?? 0;
           const percentage = totalCount > 0 ? Math.round((count / totalCount) * 100) : 0;
           return (
-            <div key={state.key} className="text-xs flex items-center gap-1.5 text-secondary">
+            <div key={state.key} className="text-xs flex items-center gap-1.5">
               <span className="h-2.5 w-2.5 flex-shrink-0 rounded-full" style={{ backgroundColor: state.color }} />
-              <span className="font-medium">{state.label}</span>
-              <span className="text-tertiary">
-                {count} {percentage}%
-              </span>
+              <span className="font-medium text-primary">{state.label}</span>
+              <span className="text-tertiary tabular-nums">{percentage}%</span>
             </div>
           );
         })}
@@ -92,7 +90,7 @@ const ProgressBar = observer(function ProgressBar({
   if (!totalCount) return null;
 
   return (
-    <div className="bg-custom-background-80 flex h-2 w-full overflow-hidden rounded-full">
+    <div className="bg-custom-background-80 flex h-3 w-full overflow-hidden rounded-full">
       {EPIC_STATES.map((state) => {
         const count = distribution?.[state.key]?.length ?? 0;
         if (count === 0) return null;

@@ -14,7 +14,7 @@ import { EIssueServiceType, EIssuesStoreType } from "@plane/types";
 import { cn } from "@plane/utils";
 // hooks
 import { useIssueDetail } from "@/hooks/store/use-issue-detail";
-import { IssuesStoreContext, useIssueStoreType } from "@/hooks/use-issue-layout-store";
+import { IssuesStoreContext } from "@/hooks/use-issue-layout-store";
 import useKeypress from "@/hooks/use-keypress";
 import usePeekOverviewOutsideClickDetector from "@/hooks/use-peek-overview-outside-click";
 // local imports
@@ -64,20 +64,26 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
   // ref
   const issuePeekOverviewRef = useRef<HTMLDivElement>(null);
   const editorRef = useRef<EditorRefApi>(null);
-  // store hooks
-  const storeType = useIssueStoreType();
-  const isEpic = storeType === EIssuesStoreType.EPIC;
+  // store hooks — call both unconditionally (React hooks rule), pick based on the peeked issue
+  const issueStore = useIssueDetail(EIssueServiceType.ISSUES);
+  const epicStore = useIssueDetail(EIssueServiceType.EPICS);
+  // Determine if the peeked issue is an epic from the shared issues map.
+  // Prefer explicit is_epic; fall back to which store originated the peek.
+  const peekIssueData = issueStore.issue.getIssueById(issueId);
+  const peekSourceIsEpicStore = !issueStore.peekIssue && !!epicStore.peekIssue;
+  const isEpic = peekIssueData?.is_epic ?? peekSourceIsEpicStore;
   const serviceType = isEpic ? EIssueServiceType.EPICS : EIssueServiceType.ISSUES;
+  const activeStore = isEpic ? epicStore : issueStore;
   const {
-    setPeekIssue,
     isAnyModalOpen,
     issue: { getIssueById },
-  } = useIssueDetail(serviceType);
-  const { isAnyModalOpen: isAnyEpicModalOpen } = useIssueDetail(EIssueServiceType.EPICS);
+  } = activeStore;
   const issue = getIssueById(issueId);
-  // remove peek id
+  // remove peek id — clear BOTH stores to prevent stale peekIssue on the other store
+  // (e.g. epic was peeked earlier, user navigated away without closing, then peeked a work item)
   const removeRoutePeekId = () => {
-    setPeekIssue(undefined);
+    issueStore.setPeekIssue(undefined);
+    epicStore.setPeekIssue(undefined);
     if (embedIssue && embedRemoveCurrentNotification) embedRemoveCurrentNotification();
   };
 
@@ -94,7 +100,7 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
     () => {
       const isAnyDropbarOpen = editorRef.current?.isAnyDropbarOpen();
       if (!embedIssue) {
-        if (!isAnyModalOpen && !isAnyEpicModalOpen && !isAnyLocalModalOpen && !isAnyDropbarOpen) {
+        if (!isAnyModalOpen && !epicStore.isAnyModalOpen && !isAnyLocalModalOpen && !isAnyDropbarOpen) {
           removeRoutePeekId();
         }
       }
@@ -274,10 +280,12 @@ export const IssueView = observer(function IssueView(props: IIssueView) {
     </div>
   );
 
-  const wrappedContent = isEpic ? (
-    <IssuesStoreContext.Provider value={EIssuesStoreType.EPIC}>{content}</IssuesStoreContext.Provider>
-  ) : (
-    content
+  // Always wrap with explicit context to override any inherited parent context
+  // (createPortal preserves source tree context, so EPIC context from parent would leak)
+  const wrappedContent = (
+    <IssuesStoreContext.Provider value={isEpic ? EIssuesStoreType.EPIC : undefined}>
+      {content}
+    </IssuesStoreContext.Provider>
   );
 
   return <>{shouldUsePortal && portalContainer ? createPortal(wrappedContent, portalContainer) : wrappedContent}</>;
