@@ -194,7 +194,11 @@ export const IssueDetailWidgetModals = observer(function IssueDetailWidgetModals
           projectId={projectId}
           isOpen={isRelationModalOpen?.issueId === issueId && isRelationModalOpen?.relationType === relationKey}
           handleClose={handleRelationOnClose}
-          searchParams={{ issue_relation: true, issue_id: issueId }}
+          searchParams={{
+            issue_relation: true,
+            issue_id: issueId,
+            ...(issueServiceType === EIssueServiceType.EPICS ? { epic_only: true } : {}),
+          }}
           handleOnSubmit={handleExistingIssueModalOnSubmit}
           workspaceLevelToggle
         />

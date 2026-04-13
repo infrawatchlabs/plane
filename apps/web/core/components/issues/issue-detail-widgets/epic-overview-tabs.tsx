@@ -10,6 +10,7 @@ import { observer } from "mobx-react";
 import type { TIssueServiceType } from "@plane/types";
 import { cn } from "@plane/utils";
 // local imports
+import { RelationActionButton } from "./relations/quick-action-button";
 import { SubIssuesCollapsibleContent } from "./sub-issues/content";
 import { SubWorkItemTitleActions } from "./sub-issues/title-actions";
 import { RelationsCollapsibleContent } from "./relations/content";
@@ -35,9 +36,6 @@ export const EpicOverviewTabs = observer(function EpicOverviewTabs(props: Props)
 
   return (
     <div className="space-y-3">
-      {/* Section header */}
-      <span className="text-sm font-medium text-primary">Overview</span>
-
       {/* Tab bar */}
       <div className="flex items-center justify-between border-b border-subtle">
         <div className="flex items-center gap-0">
@@ -66,6 +64,9 @@ export const EpicOverviewTabs = observer(function EpicOverviewTabs(props: Props)
             disabled={disabled}
             issueServiceType={issueServiceType}
           />
+        )}
+        {activeTab === "relations" && !disabled && (
+          <RelationActionButton issueId={issueId} disabled={disabled} issueServiceType={issueServiceType} />
         )}
       </div>
 

@@ -157,6 +157,7 @@ export type TProjectIssuesSearchParams = {
   workspace_search: boolean;
   target_date?: string;
   epic?: boolean;
+  epic_only?: boolean;
 };
 
 export interface ISearchIssueResponse {
