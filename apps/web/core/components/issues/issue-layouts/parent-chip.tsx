@@ -8,10 +8,9 @@ import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
 // plane imports
 import { Tooltip } from "@plane/propel/tooltip";
+import { EpicIcon } from "@plane/propel/icons";
 import type { TIssue } from "@plane/types";
-import { cn, generateWorkItemLink } from "@plane/utils";
 // hooks
-import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 import { useProject } from "@/hooks/store/use-project";
 import { usePlatformOS } from "@/hooks/use-platform-os";
 
@@ -19,58 +18,72 @@ interface ParentChipProps {
   issue: TIssue;
 }
 
+const EPIC_STYLE: React.CSSProperties = {
+  backgroundColor: "#fff7ed",
+  color: "#d97706",
+  borderRadius: "4px",
+  padding: "1px 6px",
+  fontSize: "11px",
+  fontWeight: 500,
+  display: "inline-flex",
+  alignItems: "center",
+  lineHeight: "18px",
+  cursor: "pointer",
+  border: "1px solid #fed7aa",
+};
+
+const PARENT_STYLE: React.CSSProperties = {
+  backgroundColor: "#eff6ff",
+  color: "#2563eb",
+  borderRadius: "4px",
+  padding: "1px 6px",
+  fontSize: "11px",
+  fontWeight: 500,
+  display: "inline-flex",
+  alignItems: "center",
+  lineHeight: "18px",
+  cursor: "pointer",
+  border: "1px solid #bfdbfe",
+};
+
 export const ParentChip = observer(function ParentChip(props: ParentChipProps) {
   const { issue } = props;
   // router
   const { workspaceSlug: routerWorkspaceSlug } = useParams();
   const workspaceSlug = routerWorkspaceSlug?.toString();
   // hooks
-  const {
-    issue: { getIssueById },
-  } = useIssueDetail();
   const { getProjectIdentifierById } = useProject();
   const { isMobile } = usePlatformOS();
 
   // early return if no parent
   if (!issue.parent_id) return null;
 
-  const parentIssue = getIssueById(issue.parent_id);
-  if (!parentIssue) return null;
+  // Use parent fields from API annotation (no store dependency)
+  const parentSeqId = issue.parent__sequence_id;
+  const parentProjectId = issue.parent__project_id;
+  if (!parentSeqId || !parentProjectId) return null;
 
-  const parentProjectIdentifier = getProjectIdentifierById(parentIssue.project_id);
-  const parentIdentifier = `${parentProjectIdentifier}-${parentIssue.sequence_id}`;
-  const isEpicParent = !!parentIssue.is_epic;
-  const icon = isEpicParent ? "\u26A1" : "\u2191";
-
-  const parentLink = generateWorkItemLink({
-    workspaceSlug,
-    projectId: parentIssue.project_id,
-    issueId: parentIssue.id,
-    projectIdentifier: parentProjectIdentifier,
-    sequenceId: parentIssue.sequence_id,
-    isEpic: isEpicParent,
-  });
+  const isEpicParent = !!issue.parent_is_epic;
+  const parentProjectIdentifier = getProjectIdentifierById(parentProjectId);
+  const parentIdentifier = `${parentProjectIdentifier}-${parentSeqId}`;
 
   const handleClick = (e: React.MouseEvent) => {
     e.stopPropagation();
     e.preventDefault();
-    if (parentLink) {
-      window.open(parentLink, "_self");
+    if (workspaceSlug) {
+      const basePath = `/${workspaceSlug}/projects/${parentProjectId}`;
+      const path = isEpicParent
+        ? `${basePath}/epics/?peekId=${issue.parent_id}`
+        : `${basePath}/work-items/?peekId=${issue.parent_id}`;
+      window.open(path, "_self");
     }
   };
 
   return (
-    <Tooltip tooltipContent={parentIssue.name} isMobile={isMobile} renderByDefault={false}>
-      <button
-        type="button"
-        onClick={handleClick}
-        className={cn(
-          "text-xs flex flex-shrink-0 items-center gap-0.5 rounded px-1.5 py-0.5 leading-none font-medium",
-          isEpicParent ? "bg-amber-50 text-amber-600" : "bg-blue-50 text-blue-600"
-        )}
-      >
-        <span>{icon}</span>
-        <span>{parentIdentifier}</span>
+    <Tooltip tooltipContent={parentIdentifier} isMobile={isMobile} renderByDefault={false}>
+      <button type="button" onClick={handleClick} style={isEpicParent ? EPIC_STYLE : PARENT_STYLE}>
+        {isEpicParent && <EpicIcon className="size-3" />}
+        {parentIdentifier}
       </button>
     </Tooltip>
   );

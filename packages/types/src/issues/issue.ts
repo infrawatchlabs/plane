@@ -77,6 +77,9 @@ export type TBaseIssue = {
   is_draft: boolean;
   is_epic?: boolean;
   is_intake?: boolean;
+  parent_is_epic?: boolean;
+  parent__sequence_id?: number;
+  parent__project_id?: string;
 };
 
 type IssueRelation = {
