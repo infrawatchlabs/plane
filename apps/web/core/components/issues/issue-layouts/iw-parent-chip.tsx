@@ -71,11 +71,7 @@ export const ParentChip = observer(function ParentChip(props: ParentChipProps) {
     e.stopPropagation();
     e.preventDefault();
     if (workspaceSlug) {
-      const basePath = `/${workspaceSlug}/projects/${parentProjectId}`;
-      const path = isEpicParent
-        ? `${basePath}/epics/?peekId=${issue.parent_id}`
-        : `${basePath}/work-items/?peekId=${issue.parent_id}`;
-      window.open(path, "_self");
+      window.open(`/${workspaceSlug}/browse/${parentIdentifier}/`, "_self");
     }
   };
 
