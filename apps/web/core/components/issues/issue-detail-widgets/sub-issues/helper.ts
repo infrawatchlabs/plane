@@ -17,7 +17,9 @@ import { useIssueDetail } from "@/hooks/store/use-issue-detail";
 export const useSubIssueOperations = (issueServiceType: TIssueServiceType): TSubIssueOperations => {
   // translation
   const { t } = useTranslation();
-  // store hooks
+  // store hooks — sub-issues are always regular work items, never epics.
+  // Use ISSUES service type for CRUD operations so API calls hit /issues/ not /epics/.
+  const childServiceType = EIssueServiceType.ISSUES;
   const {
     subIssues: { setSubIssueHelpers },
     createSubIssues,
@@ -25,7 +27,7 @@ export const useSubIssueOperations = (issueServiceType: TIssueServiceType): TSub
     updateSubIssue,
     deleteSubIssue,
     removeSubIssue,
-  } = useIssueDetail(issueServiceType);
+  } = useIssueDetail(childServiceType);
 
   const subIssueOperations: TSubIssueOperations = useMemo(
     () => ({
