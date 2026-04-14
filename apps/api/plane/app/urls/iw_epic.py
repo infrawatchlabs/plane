@@ -35,6 +35,12 @@ urlpatterns = [
         ),
         name="project-epics-detail",
     ),
+    # Epic analytics
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/epics/<uuid:pk>/analytics/",
+        IwEpicViewSet.as_view({"get": "analytics"}),
+        name="project-epics-analytics",
+    ),
     # Epic list (non-paginated)
     path(
         "workspaces/<str:slug>/projects/<uuid:project_id>/epics/list/",
