@@ -42,7 +42,7 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
     issues: { restoreIssue },
   } = useIssues(EIssuesStoreType.ARCHIVED);
   const issueStoreType = useIssueStoreType();
-  const storeType = issueStoreFromProps ?? issueStoreType;
+  const _pageStoreType = issueStoreFromProps ?? issueStoreType;
   // Call both stores unconditionally (React hooks rule).
   // Determine service type from the peeked issue, not page context.
   const issueDetailStore = useIssueDetail(EIssueServiceType.ISSUES);
@@ -63,7 +63,11 @@ export const IssuePeekOverview = observer(function IssuePeekOverview(props: IWor
     issue: { fetchIssue },
     fetchActivities,
   } = activeDetailStore;
-  const { issues } = useIssues(storeType);
+  // Use the correct issues store for the peeked item, not the page context.
+  // When peeking a child work item from an epic page, storeType is EPIC but
+  // the child must go through PROJECT store (hitting /issues/, not /epics/).
+  const peekStoreType = isPeekEpic ? EIssuesStoreType.EPIC : EIssuesStoreType.PROJECT;
+  const { issues } = useIssues(peekStoreType);
 
   useWorkItemProperties(
     peekIssue?.projectId,
