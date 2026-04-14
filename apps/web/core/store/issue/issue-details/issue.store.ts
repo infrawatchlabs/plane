@@ -103,6 +103,7 @@ export class IssueStore implements IIssueStore {
     if (issue && issue?.parent && issue?.parent?.id && issue?.parent?.project_id) {
       this.issueService.retrieve(workspaceSlug, issue.parent.project_id, issue?.parent?.id).then((res) => {
         this.rootIssueDetailStore.rootIssueStore.issues.addIssue([res]);
+        return res;
       });
     }
     // assignees
@@ -178,11 +179,19 @@ export class IssueStore implements IIssueStore {
     return issuePayload;
   };
 
+  // Resolve the correct store based on the issue itself, not the page context.
+  // When viewing an epic's children, the context is EPICS but the child is a
+  // regular work item — CRUD must go through projectIssues (hitting /issues/).
+  private getStoreForIssue = (issueId: string) => {
+    const issue = this.getIssueById(issueId);
+    if (issue?.is_epic) {
+      return this.rootIssueDetailStore.rootIssueStore.projectEpics;
+    }
+    return this.rootIssueDetailStore.rootIssueStore.projectIssues;
+  };
+
   updateIssue = async (workspaceSlug: string, projectId: string, issueId: string, data: Partial<TIssue>) => {
-    const currentStore =
-      this.serviceType === EIssueServiceType.EPICS
-        ? this.rootIssueDetailStore.rootIssueStore.projectEpics
-        : this.rootIssueDetailStore.rootIssueStore.projectIssues;
+    const currentStore = this.getStoreForIssue(issueId);
 
     await Promise.all([
       currentStore.updateIssue(workspaceSlug, projectId, issueId, data),
@@ -191,18 +200,12 @@ export class IssueStore implements IIssueStore {
   };
 
   removeIssue = async (workspaceSlug: string, projectId: string, issueId: string) => {
-    const currentStore =
-      this.serviceType === EIssueServiceType.EPICS
-        ? this.rootIssueDetailStore.rootIssueStore.projectEpics
-        : this.rootIssueDetailStore.rootIssueStore.projectIssues;
+    const currentStore = this.getStoreForIssue(issueId);
     currentStore.removeIssue(workspaceSlug, projectId, issueId);
   };
 
   archiveIssue = async (workspaceSlug: string, projectId: string, issueId: string) => {
-    const currentStore =
-      this.serviceType === EIssueServiceType.EPICS
-        ? this.rootIssueDetailStore.rootIssueStore.projectEpics
-        : this.rootIssueDetailStore.rootIssueStore.projectIssues;
+    const currentStore = this.getStoreForIssue(issueId);
     currentStore.archiveIssue(workspaceSlug, projectId, issueId);
   };
 
@@ -288,6 +291,7 @@ export class IssueStore implements IIssueStore {
     if (issue?.parent && issue?.parent?.id && issue?.parent?.project_id) {
       this.issueService.retrieve(workspaceSlug, issue.parent.project_id, issue.parent.id).then((res) => {
         this.rootIssueDetailStore.rootIssueStore.issues.addIssue([res]);
+        return res;
       });
     }
 
