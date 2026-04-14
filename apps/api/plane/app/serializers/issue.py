@@ -47,6 +47,7 @@ from plane.utils.content_validator import (
     validate_html_content,
     validate_binary_data,
 )
+from plane.app.views.issue.iw_hierarchy import validate_parent_hierarchy
 
 
 class IssueFlatSerializer(BaseSerializer):
@@ -183,6 +184,13 @@ class IssueCreateSerializer(BaseSerializer):
             ).exists()
         ):
             raise serializers.ValidationError("Parent is not valid issue_id please pass a valid issue_id")
+
+        # Hierarchy depth validation (Epic -> Work Item -> Sub-item, 3 levels max)
+        if attrs.get("parent"):
+            validate_parent_hierarchy(
+                child_issue_or_id=self.instance,
+                parent_issue_or_id=attrs["parent"],
+            )
 
         if (
             attrs.get("estimate_point")
