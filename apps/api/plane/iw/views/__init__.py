@@ -3,3 +3,8 @@ from .page import (
     PageDetailAPIEndpoint,
     PageDescriptionAPIEndpoint,
 )
+
+from .epic import (
+    EpicListCreateAPIEndpoint,
+    EpicDetailAPIEndpoint,
+)
