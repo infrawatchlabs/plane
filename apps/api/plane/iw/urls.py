@@ -7,6 +7,8 @@ from .views import (
     PageListCreateAPIEndpoint,
     PageDetailAPIEndpoint,
     PageDescriptionAPIEndpoint,
+    EpicListCreateAPIEndpoint,
+    EpicDetailAPIEndpoint,
 )
 
 urlpatterns = [
@@ -25,5 +27,16 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/description/",
         PageDescriptionAPIEndpoint.as_view(http_method_names=["get", "patch"]),
         name="iw-project-page-description",
+    ),
+    # Epics
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/iw-epics/",
+        EpicListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="iw-epics",
+    ),
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/iw-epics/<uuid:pk>/",
+        EpicDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="iw-epic-detail",
     ),
 ]
