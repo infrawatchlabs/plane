@@ -12,7 +12,7 @@ import { runInAction } from "mobx";
 import { unset } from "lodash-es";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Plus, Home, Loader2, FolderPlus } from "lucide-react";
+import { Home, Loader2, FolderPlus } from "lucide-react";
 import { WikiIcon } from "@plane/propel/icons";
 import { ScrollArea } from "@plane/propel/scrollarea";
 // components
@@ -185,45 +185,28 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
   return (
     <div className="flex h-full w-full animate-fade-in flex-col">
       {/* Header */}
-      <div className="flex flex-col gap-3 px-3">
+      <div className="flex flex-col gap-2 px-3">
         <div className="flex items-center justify-between gap-2 px-2">
           <div className="flex items-center gap-1.5 pt-1">
             <WikiIcon className="size-4 flex-shrink-0 text-primary" />
             <span className="text-16 font-medium text-primary">Wiki</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="flex items-center rounded-md p-1 text-secondary hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleCreateFolder}
+              disabled={isCreatingFolder}
+              title="New folder"
+            >
+              {isCreatingFolder ? (
+                <Loader2 className="size-4 flex-shrink-0 animate-spin" />
+              ) : (
+                <FolderPlus className="size-4 flex-shrink-0" />
+              )}
+            </button>
             <AppSidebarToggleButton />
           </div>
-        </div>
-
-        {/* Action buttons */}
-        <div className="flex gap-2">
-          <button
-            type="button"
-            className="flex flex-1 items-center gap-2 rounded-md border border-subtle px-3 py-2 text-13 font-medium text-secondary hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={() => handleCreatePage()}
-            disabled={isCreating}
-          >
-            {isCreating ? (
-              <Loader2 className="size-4 flex-shrink-0 animate-spin" />
-            ) : (
-              <Plus className="size-4 flex-shrink-0" />
-            )}
-            <span>{isCreating ? "Creating..." : "New page"}</span>
-          </button>
-          <button
-            type="button"
-            className="flex items-center gap-1.5 rounded-md border border-subtle px-2.5 py-2 text-13 font-medium text-secondary hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-50"
-            onClick={handleCreateFolder}
-            disabled={isCreatingFolder}
-            title="New folder"
-          >
-            {isCreatingFolder ? (
-              <Loader2 className="size-4 flex-shrink-0 animate-spin" />
-            ) : (
-              <FolderPlus className="size-4 flex-shrink-0" />
-            )}
-          </button>
         </div>
       </div>
 

@@ -31,8 +31,8 @@ type Props = {
 export const WikiPageNode = observer(function WikiPageNode(props: Props) {
   const { pageId, page, wikiBasePath, depth, isActive, onDelete } = props;
 
-  // Add extra padding to account for the chevron space that folders have but pages don't
-  const chevronSpace = 24;
+  // Offset page icon to align with folder icon (skip past chevron 16px + gap 6px = 22px)
+  const chevronSpace = 16;
   const indentPx = depth * 16 + chevronSpace;
 
   const handleDragStart = (e: React.DragEvent) => {

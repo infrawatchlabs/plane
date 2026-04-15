@@ -211,7 +211,6 @@ export class PageFolderStore implements IPageFolderStore {
   toggleFolderExpanded = (folderId: string): void => {
     const current = !!this.expandedFolders[folderId];
     const next = { ...this.expandedFolders, [folderId]: !current };
-    console.log(`[STORE] toggle "${folderId}": ${current} → ${!current}`);
     this.expandedFolders = next;
     saveExpandedState(next);
   };
