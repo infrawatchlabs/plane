@@ -3,15 +3,11 @@
  * Manages folder CRUD, page-to-folder mapping, and tree state (expanded/collapsed).
  */
 
-import { set, unset } from "lodash-es";
-import { makeObservable, observable, runInAction, action, computed } from "mobx";
+import { unset } from "lodash-es";
+import { makeObservable, observable, runInAction, action, computed, set } from "mobx";
 import { computedFn } from "mobx-utils";
 // types
-import type {
-  TPageFolder,
-  TPageFolderCreatePayload,
-  TPageFolderUpdatePayload,
-} from "./iw-page-folder.types";
+import type { TPageFolder, TPageFolderCreatePayload, TPageFolderUpdatePayload } from "./iw-page-folder.types";
 // service
 import { PageFolderService } from "@/services/page/iw-page-folder.service";
 
@@ -84,13 +80,10 @@ export interface IPageFolderStore {
   setFolderExpanded: (folderId: string, expanded: boolean) => void;
   fetchFolders: (workspaceSlug: string) => Promise<void>;
   createFolder: (workspaceSlug: string, payload: TPageFolderCreatePayload) => Promise<TPageFolder>;
-  updateFolder: (
-    workspaceSlug: string,
-    folderId: string,
-    payload: TPageFolderUpdatePayload
-  ) => Promise<TPageFolder>;
+  updateFolder: (workspaceSlug: string, folderId: string, payload: TPageFolderUpdatePayload) => Promise<TPageFolder>;
   removeFolder: (workspaceSlug: string, folderId: string) => Promise<void>;
   movePageToFolder: (workspaceSlug: string, pageId: string, folderId: string | null) => Promise<void>;
+  removePageFromMap: (pageId: string) => void;
 }
 
 export class PageFolderStore implements IPageFolderStore {
@@ -119,11 +112,18 @@ export class PageFolderStore implements IPageFolderStore {
       updateFolder: action,
       removeFolder: action,
       movePageToFolder: action,
+      removePageFromMap: action,
     });
     this.service = new PageFolderService();
-    // Load persisted expand state and page-folder mapping
-    this.expandedFolders = loadExpandedState();
-    this.pageFolderMap = loadPageFolderMap();
+    // Load persisted state into the observable objects (don't replace the reference)
+    const savedExpanded = loadExpandedState();
+    for (const [key, value] of Object.entries(savedExpanded)) {
+      set(this.expandedFolders, key, value);
+    }
+    const savedPageMap = loadPageFolderMap();
+    for (const [key, value] of Object.entries(savedPageMap)) {
+      set(this.pageFolderMap, key, value);
+    }
   }
 
   /**
@@ -248,10 +248,7 @@ export class PageFolderStore implements IPageFolderStore {
   /**
    * Create a new folder.
    */
-  createFolder = async (
-    workspaceSlug: string,
-    payload: TPageFolderCreatePayload
-  ): Promise<TPageFolder> => {
+  createFolder = async (workspaceSlug: string, payload: TPageFolderCreatePayload): Promise<TPageFolder> => {
     // Validate nesting depth
     if (payload.parent_folder) {
       const parentDepth = this.getFolderDepth(payload.parent_folder);
@@ -321,11 +318,7 @@ export class PageFolderStore implements IPageFolderStore {
   /**
    * Move a page into a folder (or root if folderId is null).
    */
-  movePageToFolder = async (
-    workspaceSlug: string,
-    pageId: string,
-    folderId: string | null
-  ): Promise<void> => {
+  movePageToFolder = async (workspaceSlug: string, pageId: string, folderId: string | null): Promise<void> => {
     await this.service.movePageToFolder(workspaceSlug, pageId, folderId);
     runInAction(() => {
       if (folderId === null) {
@@ -335,5 +328,13 @@ export class PageFolderStore implements IPageFolderStore {
       }
       savePageFolderMap({ ...this.pageFolderMap });
     });
+  };
+
+  /**
+   * Remove a page from the folder mapping (used after page deletion).
+   */
+  removePageFromMap = (pageId: string): void => {
+    delete this.pageFolderMap[pageId];
+    savePageFolderMap({ ...this.pageFolderMap });
   };
 }

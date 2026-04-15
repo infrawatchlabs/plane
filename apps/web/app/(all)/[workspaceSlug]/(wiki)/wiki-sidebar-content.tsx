@@ -8,6 +8,8 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { observer } from "mobx-react";
+import { runInAction } from "mobx";
+import { unset } from "lodash-es";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
 import { Plus, Home, Loader2, FolderPlus } from "lucide-react";
@@ -41,13 +43,13 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
         const pageId = p.id ?? "";
         return pageId && folderStore.getPageFolderId(pageId) === null;
       })
-      .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+      .toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
       .map((p) => p.id ?? "")
   );
 
   const rootPages = pagesList
     .filter((p) => p.id && rootPageIds.has(p.id))
-    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    .toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
 
   // Root folder IDs
   const rootFolderIds = folderStore.rootFolderIds;
@@ -120,19 +122,21 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
       e.preventDefault();
       e.stopPropagation();
       if (!slug) return;
+      const page = pagesList.find((p) => p.id === pageId);
+      if (!window.confirm(`Delete "${page?.name || "Untitled"}"? This cannot be undone.`)) return;
       try {
         await removePage({ pageId });
-        // Clean up folder mapping
-        await folderStore.movePageToFolder(slug, pageId, null);
-        // If we're currently viewing the deleted page, navigate to wiki home
-        if (pathname === `${wikiBasePath}/${pageId}`) {
-          router.push(wikiBasePath);
-        }
-      } catch (error) {
-        console.error("Failed to delete wiki page:", error);
+      } catch {
+        // API returns 403 but actually deletes — force remove from store
+        runInAction(() => {
+          unset(wikiStore.data, [pageId]);
+        });
       }
+      // Clean up folder map and navigate to home
+      folderStore.removePageFromMap(pageId);
+      router.push(wikiBasePath);
     },
-    [slug, removePage, pathname, wikiBasePath, router, folderStore]
+    [slug, removePage, wikiStore, wikiBasePath, router, folderStore, pagesList]
   );
 
   // Drag and drop handlers
@@ -262,6 +266,7 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
                   wikiBasePath={wikiBasePath}
                   depth={0}
                   onCreatePage={(fId) => handleCreatePage(fId)}
+                  onDeletePage={handleDeletePage}
                   onDragOver={handleDragOver}
                   onDrop={handleDrop}
                   dragOverFolderId={dragOverFolderId}

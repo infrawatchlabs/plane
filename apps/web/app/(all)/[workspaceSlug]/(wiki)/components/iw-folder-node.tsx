@@ -7,8 +7,6 @@ import { useCallback, useRef, useState } from "react";
 import { observer } from "mobx-react";
 import { ChevronRight, Folder, FolderOpen, MoreHorizontal } from "lucide-react";
 import { cn } from "@plane/utils";
-// components
-import { SidebarNavItem } from "@/components/sidebar/sidebar-navigation";
 // hooks
 import { usePageFolders } from "@/hooks/store/use-page-folders";
 // local components
@@ -21,6 +19,7 @@ type Props = {
   wikiBasePath: string;
   depth: number;
   onCreatePage: (folderId: string) => void;
+  onDeletePage?: (e: React.MouseEvent, pageId: string) => void;
   onDragOver: (e: React.DragEvent, folderId: string) => void;
   onDrop: (e: React.DragEvent, folderId: string) => void;
   dragOverFolderId: string | null;
@@ -37,6 +36,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
     wikiBasePath,
     depth,
     onCreatePage,
+    onDeletePage,
     onDragOver,
     onDrop,
     dragOverFolderId,
@@ -45,8 +45,8 @@ export const FolderNode = observer(function FolderNode(props: Props) {
   } = props;
 
   const folderStore = usePageFolders();
-  const folder = folderStore.getFolderById(folderId);
-  const isExpanded = folderStore.isFolderExpanded(folderId);
+  const folder = folderStore.folders[folderId];
+  const isExpanded = !!folderStore.expandedFolders[folderId];
   const childFolderIds = folderStore.getChildFolderIds(folderId);
   const pageIdsInFolder = folderStore.getPageIdsInFolder(folderId);
 
@@ -59,7 +59,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
   // Pages in this folder, sorted alphabetically
   const pagesInFolder = allPagesList
     .filter((p) => p.id && pageIdsInFolder.includes(p.id))
-    .sort((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+    .toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
 
   if (!folder) return null;
 
@@ -70,7 +70,9 @@ export const FolderNode = observer(function FolderNode(props: Props) {
   // Handlers
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    folderStore.toggleFolderExpanded(folderId);
+    // Read current state directly from store (not from render-time snapshot)
+    const currentlyExpanded = !!folderStore.expandedFolders[folderId];
+    folderStore.setFolderExpanded(folderId, !currentlyExpanded);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -83,7 +85,8 @@ export const FolderNode = observer(function FolderNode(props: Props) {
     e.preventDefault();
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    setContextMenu({ x: rect.right, y: rect.top });
+    // Position menu below the button, right-aligned to the button so it stays inside the sidebar
+    setContextMenu({ x: rect.right - 180, y: rect.bottom + 4 });
   };
 
   const handleStartRename = () => {
@@ -113,12 +116,17 @@ export const FolderNode = observer(function FolderNode(props: Props) {
   };
 
   const handleDelete = useCallback(async () => {
+    const childCount = childFolderIds.length + pageIdsInFolder.length;
+    const message = childCount > 0
+      ? `Delete folder "${folder.name}" and all its contents (${childCount} item${childCount > 1 ? "s" : ""})? This cannot be undone.`
+      : `Delete empty folder "${folder.name}"?`;
+    if (!window.confirm(message)) return;
     try {
       await folderStore.removeFolder(workspaceSlug, folderId);
     } catch (error) {
       console.error("Failed to delete folder:", error);
     }
-  }, [folderStore, workspaceSlug, folderId]);
+  }, [folderStore, workspaceSlug, folderId, childFolderIds.length, pageIdsInFolder.length, folder.name]);
 
   const handleNewSubFolder = useCallback(async () => {
     try {
@@ -137,77 +145,57 @@ export const FolderNode = observer(function FolderNode(props: Props) {
     onCreatePage(folderId);
   };
 
-  const handleDragOver = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDragOver(e, folderId);
-  };
-
-  const handleDrop = (e: React.DragEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
-    onDrop(e, folderId);
-  };
-
   return (
     <div>
-      {/* Folder row */}
+      {/* Folder row — treeitem (not button) because it contains nested interactive elements */}
       <div
+        role="treeitem"
+        aria-expanded={isExpanded}
+        tabIndex={0}
         style={{ paddingLeft: `${indentPx}px` }}
+        className={cn(
+          "group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-2 hover:bg-layer-transparent-hover",
+          isDragOver && "ring-primary/30 bg-layer-transparent-hover ring-2"
+        )}
+        onClick={handleToggle}
+        onKeyDown={(e) => { if (e.key === "Enter") handleToggle(e as unknown as React.MouseEvent); }}
         onContextMenu={handleContextMenu}
-        onDragOver={handleDragOver}
-        onDrop={handleDrop}
+        onDragOver={(e) => { e.preventDefault(); onDragOver(e, folderId); }}
+        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(e, folderId); }}
       >
-        <SidebarNavItem className={cn(isDragOver && "ring-primary/30 bg-layer-transparent-hover ring-2")}>
-          <div className="group flex w-full items-center gap-1 py-[1px]">
-            {/* Expand/collapse chevron */}
-            <button
-              type="button"
-              className="flex-shrink-0 rounded p-0.5 hover:bg-layer-transparent-hover"
-              onClick={handleToggle}
-            >
-              <ChevronRight
-                className={cn("size-3.5 text-tertiary transition-transform duration-150", isExpanded && "rotate-90")}
-              />
-            </button>
+        {/* Expand/collapse chevron */}
+        <ChevronRight
+          className={cn("size-4 flex-shrink-0 text-tertiary transition-transform duration-200", isExpanded && "rotate-90")}
+        />
 
-            {/* Folder icon */}
-            <span className="flex size-4 flex-shrink-0 items-center justify-center text-secondary">
-              {isExpanded ? <FolderOpen className="size-4" /> : <Folder className="size-4" />}
-            </span>
+        {/* Folder icon */}
+        {isExpanded ? <FolderOpen className="size-4 flex-shrink-0 text-secondary" /> : <Folder className="size-4 flex-shrink-0 text-secondary" />}
 
-            {/* Folder name or rename input */}
-            {isRenaming ? (
-              <input
-                ref={renameInputRef}
-                type="text"
-                className="focus:border-primary min-w-0 flex-1 rounded border border-subtle bg-surface-1 px-1 py-0 text-13 leading-5 font-medium text-primary outline-none"
-                value={renameValue}
-                onChange={(e) => setRenameValue(e.target.value)}
-                onBlur={handleFinishRename}
-                onKeyDown={handleRenameKeyDown}
-              />
-            ) : (
-              <button
-                type="button"
-                className="min-w-0 flex-1 cursor-pointer truncate border-none bg-transparent p-0 text-left text-13 leading-5 font-medium"
-                onClick={handleToggle}
-              >
-                {folder.name}
-              </button>
-            )}
+        {/* Folder name or rename input */}
+        {isRenaming ? (
+          <input
+            ref={renameInputRef}
+            type="text"
+            className="focus:border-primary min-w-0 flex-1 rounded border border-subtle bg-surface-1 px-1.5 py-0.5 text-13 leading-5 font-medium text-primary outline-none"
+            value={renameValue}
+            onChange={(e) => setRenameValue(e.target.value)}
+            onClick={(e) => e.stopPropagation()}
+            onBlur={handleFinishRename}
+            onKeyDown={handleRenameKeyDown}
+          />
+        ) : (
+          <span className="min-w-0 flex-1 truncate text-13 leading-5 font-medium">{folder.name}</span>
+        )}
 
-            {/* Three-dot menu */}
-            <button
-              type="button"
-              className="flex-shrink-0 rounded p-0.5 text-secondary opacity-0 group-hover:opacity-100 hover:bg-layer-transparent-hover"
-              onClick={handleMenuClick}
-              title="Folder actions"
-            >
-              <MoreHorizontal className="size-3.5" />
-            </button>
-          </div>
-        </SidebarNavItem>
+        {/* Three-dot menu */}
+        <button
+          type="button"
+          className="flex-shrink-0 rounded p-1 text-secondary opacity-0 group-hover:opacity-100 hover:bg-layer-transparent-hover"
+          onClick={(e) => { e.stopPropagation(); handleMenuClick(e); }}
+          title="Folder actions"
+        >
+          <MoreHorizontal className="size-4" />
+        </button>
       </div>
 
       {/* Context menu */}
@@ -236,6 +224,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
               wikiBasePath={wikiBasePath}
               depth={depth + 1}
               onCreatePage={onCreatePage}
+              onDeletePage={onDeletePage}
               onDragOver={onDragOver}
               onDrop={onDrop}
               dragOverFolderId={dragOverFolderId}
@@ -255,13 +244,14 @@ export const FolderNode = observer(function FolderNode(props: Props) {
                 wikiBasePath={wikiBasePath}
                 depth={depth + 1}
                 isActive={currentPageId === pageId}
+                onDelete={onDeletePage}
               />
             );
           })}
 
           {/* Empty state */}
           {childFolderIds.length === 0 && pagesInFolder.length === 0 && (
-            <div style={{ paddingLeft: `${(depth + 1) * 16}px` }} className="px-2 py-2 text-12 text-placeholder">
+            <div style={{ paddingLeft: `${(depth + 1) * 16 + 24}px` }} className="px-2 py-1.5 text-12 italic text-placeholder">
               Empty folder
             </div>
           )}
