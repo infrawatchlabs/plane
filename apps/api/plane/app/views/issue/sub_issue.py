@@ -28,6 +28,7 @@ from plane.utils.timezone_converter import user_timezone_converter
 from collections import defaultdict
 from plane.utils.host import base_host
 from plane.utils.order_queryset import order_issue_queryset
+from .iw_hierarchy import validate_sub_issues_bulk
 
 
 class SubIssuesEndpoint(BaseAPIView):
@@ -171,7 +172,7 @@ class SubIssuesEndpoint(BaseAPIView):
 
     # Assign multiple sub issues
     def post(self, request, slug, project_id, issue_id):
-        parent_issue = Issue.issue_objects.get(pk=issue_id)
+        parent_issue = Issue.issue_objects.select_related("type").get(pk=issue_id)
         sub_issue_ids = request.data.get("sub_issue_ids", [])
 
         if not len(sub_issue_ids):
@@ -179,6 +180,9 @@ class SubIssuesEndpoint(BaseAPIView):
                 {"error": "Sub Issue IDs are required"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+
+        # Hierarchy depth validation
+        validate_sub_issues_bulk(parent_issue, sub_issue_ids)
 
         sub_issues = Issue.issue_objects.filter(id__in=sub_issue_ids)
 

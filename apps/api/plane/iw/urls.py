@@ -9,6 +9,7 @@ from .views import (
     PageDescriptionAPIEndpoint,
     EpicListCreateAPIEndpoint,
     EpicDetailAPIEndpoint,
+    EpicAnalyticsAPIEndpoint,
 )
 
 urlpatterns = [
@@ -38,5 +39,11 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/iw-epics/<uuid:pk>/",
         EpicDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
         name="iw-epic-detail",
+    ),
+    # Epic analytics
+    path(
+        "workspaces/<str:slug>/projects/<uuid:project_id>/iw-epics/<uuid:pk>/analytics/",
+        EpicAnalyticsAPIEndpoint.as_view(http_method_names=["get"]),
+        name="iw-epic-analytics",
     ),
 ]

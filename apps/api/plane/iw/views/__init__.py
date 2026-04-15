@@ -7,4 +7,5 @@ from .page import (
 from .epic import (
     EpicListCreateAPIEndpoint,
     EpicDetailAPIEndpoint,
+    EpicAnalyticsAPIEndpoint,
 )
