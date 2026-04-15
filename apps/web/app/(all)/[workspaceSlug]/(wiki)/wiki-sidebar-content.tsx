@@ -36,12 +36,15 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
   // All pages list (for passing to folder tree)
   const pagesList = Object.values(data);
 
+  // Read pageFolderMap ref directly so MobX observer tracks it
+  const pageFolderMap = folderStore.pageFolderMap;
+
   // Root-level pages (not in any folder), sorted alphabetically
   const rootPageIds = new Set(
     pagesList
       .filter((p) => {
         const pageId = p.id ?? "";
-        return pageId && folderStore.getPageFolderId(pageId) === null;
+        return pageId && !pageFolderMap[pageId];
       })
       .toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
       .map((p) => p.id ?? "")
@@ -67,20 +70,18 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
   const pathParts = pathname.split("/");
   const currentPageId = pathParts.length > 3 ? pathParts[pathParts.length - 1] : undefined;
 
-  // Fetch pages and folders on mount
+  // Fetch pages and folders on mount, then sync page-folder map once
   useEffect(() => {
     if (slug) {
-      fetchPagesList(slug);
+      void fetchPagesList(slug).then(() => {
+        // Sync page→folder mapping from page objects' `folder` field on initial load only.
+        // After this, movePageToFolder maintains the map — don't re-sync or it overwrites local changes.
+        const pages = Object.values(wikiStore.data);
+        return folderStore.syncPageFolderMap(pages as Array<{ id?: string | null; folder?: string | null }>);
+      });
       folderStore.fetchFolders(slug);
     }
-  }, [slug, fetchPagesList, folderStore]);
-
-  // Sync page-folder mapping from page objects' `folder` field (set by backend)
-  useEffect(() => {
-    if (pagesList.length > 0) {
-      folderStore.syncPageFolderMap(pagesList as Array<{ id?: string | null; folder?: string | null }>);
-    }
-  }, [pagesList, folderStore]);
+  }, [slug, fetchPagesList, folderStore, wikiStore]);
 
   // Handle new page creation (optionally into a folder)
   const handleCreatePage = useCallback(

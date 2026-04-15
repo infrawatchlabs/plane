@@ -46,10 +46,15 @@ export const FolderNode = observer(function FolderNode(props: Props) {
 
   const folderStore = usePageFolders();
   const folder = folderStore.folders[folderId];
-  // observable.ref — reading the ref triggers MobX tracking; every toggle replaces the whole object
+  // observable.ref — reading the ref directly triggers MobX tracking
   const isExpanded = !!folderStore.expandedFolders[folderId];
   const childFolderIds = folderStore.getChildFolderIds(folderId);
-  const pageIdsInFolder = folderStore.getPageIdsInFolder(folderId);
+  // Read pageFolderMap ref directly so MobX observer tracks changes
+  const pageFolderMap = folderStore.pageFolderMap;
+  const pageIdsInFolder: string[] = [];
+  for (const [pageId, mappedFolderId] of Object.entries(pageFolderMap)) {
+    if (mappedFolderId === folderId) pageIdsInFolder.push(pageId);
+  }
 
   // States
   const [isRenaming, setIsRenaming] = useState(false);

@@ -85,7 +85,7 @@ export class PageFolderStore implements IPageFolderStore {
       loader: observable.ref,
       folders: observable,
       expandedFolders: observable.ref,
-      pageFolderMap: observable,
+      pageFolderMap: observable.ref,
       // computed
       rootFolderIds: computed,
       // actions
@@ -132,7 +132,7 @@ export class PageFolderStore implements IPageFolderStore {
   /**
    * Get page IDs inside a specific folder (null = root pages).
    */
-  getPageIdsInFolder = computedFn((folderId: string | null): string[] => {
+  getPageIdsInFolder = (folderId: string | null): string[] => {
     const result: string[] = [];
     for (const [pageId, mappedFolderId] of Object.entries(this.pageFolderMap)) {
       if (mappedFolderId === folderId) {
@@ -140,7 +140,7 @@ export class PageFolderStore implements IPageFolderStore {
       }
     }
     return result;
-  });
+  };
 
   /**
    * Compute depth of a folder (1-based: root children are depth 1).
@@ -174,7 +174,7 @@ export class PageFolderStore implements IPageFolderStore {
   /**
    * Get the folder ID for a page (null = root).
    */
-  getPageFolderId = computedFn((pageId: string): string | null => this.pageFolderMap[pageId] ?? null);
+  getPageFolderId = (pageId: string): string | null => this.pageFolderMap[pageId] ?? null;
 
   /**
    * Check if a folder is expanded.
@@ -230,10 +230,19 @@ export class PageFolderStore implements IPageFolderStore {
    * Called after pages are loaded from the API.
    */
   syncPageFolderMap = (pages: Array<{ id?: string | null; folder?: string | null }>): void => {
+    const next: Record<string, string | null> = {};
+    let changed = false;
     for (const page of pages) {
       if (page.id && page.folder) {
-        set(this.pageFolderMap, page.id, page.folder);
+        next[page.id] = page.folder;
+        if (this.pageFolderMap[page.id] !== page.folder) changed = true;
       }
+    }
+    // Also check if any existing entries were removed
+    if (!changed && Object.keys(this.pageFolderMap).length !== Object.keys(next).length) changed = true;
+    // Only replace if something actually changed — prevents infinite render loops
+    if (changed) {
+      this.pageFolderMap = next;
     }
   };
 
@@ -295,11 +304,13 @@ export class PageFolderStore implements IPageFolderStore {
         }
       }
       // Promote pages in this folder to root (mirrors backend)
-      for (const [pageId, mappedFolderId] of Object.entries(this.pageFolderMap)) {
+      const nextMap = { ...this.pageFolderMap };
+      for (const [pageId, mappedFolderId] of Object.entries(nextMap)) {
         if (mappedFolderId === folderId) {
-          this.pageFolderMap[pageId] = null;
+          delete nextMap[pageId];
         }
       }
+      this.pageFolderMap = nextMap;
       unset(this.folders, folderId);
       // Remove from expanded state
       const { [folderId]: _, ...rest } = this.expandedFolders;
@@ -315,11 +326,13 @@ export class PageFolderStore implements IPageFolderStore {
   movePageToFolder = async (workspaceSlug: string, pageId: string, folderId: string | null): Promise<void> => {
     await this.service.movePageToFolder(workspaceSlug, pageId, folderId);
     runInAction(() => {
+      const next = { ...this.pageFolderMap };
       if (folderId === null) {
-        delete this.pageFolderMap[pageId];
+        delete next[pageId];
       } else {
-        set(this.pageFolderMap, pageId, folderId);
+        next[pageId] = folderId;
       }
+      this.pageFolderMap = next;
     });
   };
 
@@ -327,6 +340,7 @@ export class PageFolderStore implements IPageFolderStore {
    * Remove a page from the folder mapping (used after page deletion).
    */
   removePageFromMap = (pageId: string): void => {
-    delete this.pageFolderMap[pageId];
+    const { [pageId]: _, ...rest } = this.pageFolderMap;
+    this.pageFolderMap = rest;
   };
 }
