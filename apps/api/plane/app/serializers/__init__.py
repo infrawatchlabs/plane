@@ -133,3 +133,5 @@ from .draft import (
     DraftIssueSerializer,
     DraftIssueDetailSerializer,
 )
+
+from .iw_page_folder import PageFolderSerializer
