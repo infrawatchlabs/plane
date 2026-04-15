@@ -1,128 +1,85 @@
 /**
- * PP-3: PageFolder service — mock layer for folder CRUD.
- * When the backend (Vikrant) ships the API, swap the mock implementations
- * for real HTTP calls to /api/workspaces/{slug}/page-folders/.
+ * PP-3: PageFolder service — real API calls for folder CRUD.
+ * Endpoints: /api/workspaces/{slug}/page-folders/
  */
 
-import { v4 as uuidv4 } from "uuid";
+import { API_BASE_URL } from "@plane/constants";
 import type {
   TPageFolder,
   TPageFolderCreatePayload,
   TPageFolderUpdatePayload,
 } from "@/store/wiki/iw-page-folder.types";
+import { APIService } from "@/services/api.service";
 
-// In-memory mock storage — persisted via localStorage for dev convenience
-const STORAGE_KEY = "iw_page_folders_mock";
-
-function loadMockData(): Record<string, TPageFolder> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
+export class PageFolderService extends APIService {
+  constructor() {
+    super(API_BASE_URL);
   }
-}
 
-function saveMockData(data: Record<string, TPageFolder>): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // silently ignore
-  }
-}
-
-export class PageFolderService {
   /**
    * Fetch all folders for a workspace.
-   * TODO: Replace with GET /api/workspaces/{slug}/page-folders/
    */
-  async fetchAll(_workspaceSlug: string): Promise<TPageFolder[]> {
-    const data = loadMockData();
-    return Object.values(data);
+  async fetchAll(workspaceSlug: string): Promise<TPageFolder[]> {
+    return this.get(`/api/workspaces/${workspaceSlug}/page-folders/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
   }
 
   /**
    * Fetch a single folder by ID.
-   * TODO: Replace with GET /api/workspaces/{slug}/page-folders/{id}/
    */
-  async fetchById(_workspaceSlug: string, folderId: string): Promise<TPageFolder> {
-    const data = loadMockData();
-    const folder = data[folderId];
-    if (!folder) throw new Error("Folder not found");
-    return folder;
+  async fetchById(workspaceSlug: string, folderId: string): Promise<TPageFolder> {
+    return this.get(`/api/workspaces/${workspaceSlug}/page-folders/${folderId}/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
   }
 
   /**
    * Create a new folder.
-   * TODO: Replace with POST /api/workspaces/{slug}/page-folders/
    */
-  async create(_workspaceSlug: string, payload: TPageFolderCreatePayload): Promise<TPageFolder> {
-    const data = loadMockData();
-    const now = new Date().toISOString();
-    const folder: TPageFolder = {
-      id: uuidv4(),
-      name: payload.name,
-      description: payload.description ?? "",
-      icon: payload.icon ?? "",
-      parent_folder: payload.parent_folder ?? null,
-      project: null,
-      workspace: "",
-      created_by: "",
-      created_at: now,
-      updated_at: now,
-    };
-    data[folder.id] = folder;
-    saveMockData(data);
-    return folder;
+  async create(workspaceSlug: string, payload: TPageFolderCreatePayload): Promise<TPageFolder> {
+    return this.post(`/api/workspaces/${workspaceSlug}/page-folders/`, payload)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
   }
 
   /**
-   * Update an existing folder.
-   * TODO: Replace with PATCH /api/workspaces/{slug}/page-folders/{id}/
+   * Update an existing folder (rename, move parent, change icon).
    */
-  async update(_workspaceSlug: string, folderId: string, payload: TPageFolderUpdatePayload): Promise<TPageFolder> {
-    const data = loadMockData();
-    const folder = data[folderId];
-    if (!folder) throw new Error("Folder not found");
-    const updated: TPageFolder = {
-      ...folder,
-      ...payload,
-      updated_at: new Date().toISOString(),
-    };
-    data[folderId] = updated;
-    saveMockData(data);
-    return updated;
+  async update(workspaceSlug: string, folderId: string, payload: TPageFolderUpdatePayload): Promise<TPageFolder> {
+    return this.patch(`/api/workspaces/${workspaceSlug}/page-folders/${folderId}/`, payload)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
   }
 
   /**
-   * Delete a folder (promote children to parent).
-   * TODO: Replace with DELETE /api/workspaces/{slug}/page-folders/{id}/
+   * Delete a folder. Backend promotes children to parent and unsets pages.
    */
-  async remove(_workspaceSlug: string, folderId: string): Promise<void> {
-    const data = loadMockData();
-    const folder = data[folderId];
-    if (!folder) throw new Error("Folder not found");
-
-    // Promote sub-folders to the parent of the deleted folder
-    for (const f of Object.values(data)) {
-      if (f.parent_folder === folderId) {
-        f.parent_folder = folder.parent_folder;
-      }
-    }
-
-    delete data[folderId];
-    saveMockData(data);
+  async remove(workspaceSlug: string, folderId: string): Promise<void> {
+    return this.delete(`/api/workspaces/${workspaceSlug}/page-folders/${folderId}/`)
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
   }
 
   /**
-   * Move a page into a folder.
-   * TODO: Replace with PATCH /api/workspaces/{slug}/pages/{pageId}/ { folder_id }
+   * Move a page into a folder (or to root if folderId is null).
+   * Uses the existing page PATCH endpoint with the folder field.
    */
-  async movePageToFolder(_workspaceSlug: string, _pageId: string, _folderId: string | null): Promise<void> {
-    // In mock mode, the store handles the mapping locally.
-    // When the backend is ready, this will PATCH the page's folder_id.
-    return;
+  async movePageToFolder(workspaceSlug: string, pageId: string, folderId: string | null): Promise<void> {
+    return this.patch(`/api/workspaces/${workspaceSlug}/pages/${pageId}/`, { folder: folderId })
+      .then((response) => response?.data)
+      .catch((error) => {
+        throw error?.response?.data;
+      });
   }
 }

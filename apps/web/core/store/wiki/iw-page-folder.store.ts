@@ -19,11 +19,8 @@ type TLoader = "init-loader" | "mutation-loader" | undefined;
 
 const MAX_NESTING_DEPTH = 4;
 
-// localStorage key for expanded state
+// localStorage key for expanded state (UI preference — stays in localStorage)
 const EXPANDED_STATE_KEY = "iw_page_folders_expanded";
-
-// localStorage key for page-to-folder mapping (mock only — backend will have folder_id on Page model)
-const PAGE_FOLDER_MAP_KEY = "iw_page_folder_map";
 
 function loadExpandedState(): Record<string, boolean> {
   if (typeof window === "undefined") return {};
@@ -39,25 +36,6 @@ function saveExpandedState(state: Record<string, boolean>): void {
   if (typeof window === "undefined") return;
   try {
     localStorage.setItem(EXPANDED_STATE_KEY, JSON.stringify(state));
-  } catch {
-    // silently ignore
-  }
-}
-
-function loadPageFolderMap(): Record<string, string | null> {
-  if (typeof window === "undefined") return {};
-  try {
-    const raw = localStorage.getItem(PAGE_FOLDER_MAP_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
-
-function savePageFolderMap(map: Record<string, string | null>): void {
-  if (typeof window === "undefined") return;
-  try {
-    localStorage.setItem(PAGE_FOLDER_MAP_KEY, JSON.stringify(map));
   } catch {
     // silently ignore
   }
@@ -83,6 +61,7 @@ export interface IPageFolderStore {
   toggleFolderExpanded: (folderId: string) => void;
   setFolderExpanded: (folderId: string, expanded: boolean) => void;
   fetchFolders: (workspaceSlug: string) => Promise<void>;
+  syncPageFolderMap: (pages: Array<{ id?: string | null; folder?: string | null }>) => void;
   createFolder: (workspaceSlug: string, payload: TPageFolderCreatePayload) => Promise<TPageFolder>;
   updateFolder: (workspaceSlug: string, folderId: string, payload: TPageFolderUpdatePayload) => Promise<TPageFolder>;
   removeFolder: (workspaceSlug: string, folderId: string) => Promise<void>;
@@ -105,7 +84,7 @@ export class PageFolderStore implements IPageFolderStore {
       // observables
       loader: observable.ref,
       folders: observable,
-      expandedFolders: observable.ref, // track by reference — immutable replacement on every change
+      expandedFolders: observable.ref,
       pageFolderMap: observable,
       // computed
       rootFolderIds: computed,
@@ -113,6 +92,7 @@ export class PageFolderStore implements IPageFolderStore {
       toggleFolderExpanded: action,
       setFolderExpanded: action,
       fetchFolders: action,
+      syncPageFolderMap: action,
       createFolder: action,
       updateFolder: action,
       removeFolder: action,
@@ -120,12 +100,8 @@ export class PageFolderStore implements IPageFolderStore {
       removePageFromMap: action,
     });
     this.service = new PageFolderService();
-    // Load persisted state
+    // Load expanded state from localStorage (UI preference only)
     this.expandedFolders = loadExpandedState();
-    const savedPageMap = loadPageFolderMap();
-    for (const [key, value] of Object.entries(savedPageMap)) {
-      set(this.pageFolderMap, key, value);
-    }
   }
 
   /**
@@ -225,7 +201,7 @@ export class PageFolderStore implements IPageFolderStore {
   };
 
   /**
-   * Fetch all folders for a workspace.
+   * Fetch all folders for a workspace from the API.
    */
   fetchFolders = async (workspaceSlug: string): Promise<void> => {
     try {
@@ -246,6 +222,18 @@ export class PageFolderStore implements IPageFolderStore {
         this.loader = undefined;
       });
       throw error;
+    }
+  };
+
+  /**
+   * Build pageFolderMap from page objects' `folder` field.
+   * Called after pages are loaded from the API.
+   */
+  syncPageFolderMap = (pages: Array<{ id?: string | null; folder?: string | null }>): void => {
+    for (const page of pages) {
+      if (page.id && page.folder) {
+        set(this.pageFolderMap, page.id, page.folder);
+      }
     }
   };
 
@@ -292,7 +280,7 @@ export class PageFolderStore implements IPageFolderStore {
   };
 
   /**
-   * Delete a folder. Children are promoted to the parent folder by the backend.
+   * Delete a folder. Backend promotes children to parent and unsets pages.
    */
   removeFolder = async (workspaceSlug: string, folderId: string): Promise<void> => {
     const folder = this.folders[folderId];
@@ -300,29 +288,29 @@ export class PageFolderStore implements IPageFolderStore {
 
     await this.service.remove(workspaceSlug, folderId);
     runInAction(() => {
-      // Promote sub-folders to the deleted folder's parent
+      // Promote sub-folders to the deleted folder's parent (mirrors backend)
       for (const f of Object.values(this.folders)) {
         if (f.parent_folder === folderId) {
           f.parent_folder = folder.parent_folder;
         }
       }
-      // Promote pages in this folder to the parent folder
+      // Promote pages in this folder to root (mirrors backend)
       for (const [pageId, mappedFolderId] of Object.entries(this.pageFolderMap)) {
         if (mappedFolderId === folderId) {
-          this.pageFolderMap[pageId] = folder.parent_folder;
+          this.pageFolderMap[pageId] = null;
         }
       }
       unset(this.folders, folderId);
-      // Remove from expanded state — immutable replacement
+      // Remove from expanded state
       const { [folderId]: _, ...rest } = this.expandedFolders;
       this.expandedFolders = rest;
       saveExpandedState(rest);
-      savePageFolderMap({ ...this.pageFolderMap });
     });
   };
 
   /**
    * Move a page into a folder (or root if folderId is null).
+   * Calls the page PATCH endpoint to update the folder field.
    */
   movePageToFolder = async (workspaceSlug: string, pageId: string, folderId: string | null): Promise<void> => {
     await this.service.movePageToFolder(workspaceSlug, pageId, folderId);
@@ -330,9 +318,8 @@ export class PageFolderStore implements IPageFolderStore {
       if (folderId === null) {
         delete this.pageFolderMap[pageId];
       } else {
-        this.pageFolderMap[pageId] = folderId;
+        set(this.pageFolderMap, pageId, folderId);
       }
-      savePageFolderMap({ ...this.pageFolderMap });
     });
   };
 
@@ -341,6 +328,5 @@ export class PageFolderStore implements IPageFolderStore {
    */
   removePageFromMap = (pageId: string): void => {
     delete this.pageFolderMap[pageId];
-    savePageFolderMap({ ...this.pageFolderMap });
   };
 }

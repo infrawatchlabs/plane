@@ -75,6 +75,13 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
     }
   }, [slug, fetchPagesList, folderStore]);
 
+  // Sync page-folder mapping from page objects' `folder` field (set by backend)
+  useEffect(() => {
+    if (pagesList.length > 0) {
+      folderStore.syncPageFolderMap(pagesList as Array<{ id?: string | null; folder?: string | null }>);
+    }
+  }, [pagesList, folderStore]);
+
   // Handle new page creation (optionally into a folder)
   const handleCreatePage = useCallback(
     async (folderId?: string) => {
