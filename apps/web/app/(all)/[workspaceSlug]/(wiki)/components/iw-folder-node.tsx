@@ -46,7 +46,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
 
   const folderStore = usePageFolders();
   const folder = folderStore.folders[folderId];
-  const isExpanded = !!folderStore.expandedFolders[folderId];
+  const isExpanded = folderStore.isFolderExpanded(folderId);
   const childFolderIds = folderStore.getChildFolderIds(folderId);
   const pageIdsInFolder = folderStore.getPageIdsInFolder(folderId);
 
@@ -70,9 +70,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
   // Handlers
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
-    // Read current state directly from store (not from render-time snapshot)
-    const currentlyExpanded = !!folderStore.expandedFolders[folderId];
-    folderStore.setFolderExpanded(folderId, !currentlyExpanded);
+    folderStore.toggleFolderExpanded(folderId);
   };
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -117,9 +115,10 @@ export const FolderNode = observer(function FolderNode(props: Props) {
 
   const handleDelete = useCallback(async () => {
     const childCount = childFolderIds.length + pageIdsInFolder.length;
-    const message = childCount > 0
-      ? `Delete folder "${folder.name}" and all its contents (${childCount} item${childCount > 1 ? "s" : ""})? This cannot be undone.`
-      : `Delete empty folder "${folder.name}"?`;
+    const message =
+      childCount > 0
+        ? `Delete folder "${folder.name}" and all its contents (${childCount} item${childCount > 1 ? "s" : ""})? This cannot be undone.`
+        : `Delete empty folder "${folder.name}"?`;
     if (!window.confirm(message)) return;
     try {
       await folderStore.removeFolder(workspaceSlug, folderId);
@@ -158,18 +157,34 @@ export const FolderNode = observer(function FolderNode(props: Props) {
           isDragOver && "ring-primary/30 bg-layer-transparent-hover ring-2"
         )}
         onClick={handleToggle}
-        onKeyDown={(e) => { if (e.key === "Enter") handleToggle(e as unknown as React.MouseEvent); }}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") handleToggle(e as unknown as React.MouseEvent);
+        }}
         onContextMenu={handleContextMenu}
-        onDragOver={(e) => { e.preventDefault(); onDragOver(e, folderId); }}
-        onDrop={(e) => { e.preventDefault(); e.stopPropagation(); onDrop(e, folderId); }}
+        onDragOver={(e) => {
+          e.preventDefault();
+          onDragOver(e, folderId);
+        }}
+        onDrop={(e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          onDrop(e, folderId);
+        }}
       >
         {/* Expand/collapse chevron */}
         <ChevronRight
-          className={cn("size-4 flex-shrink-0 text-tertiary transition-transform duration-200", isExpanded && "rotate-90")}
+          className={cn(
+            "size-4 flex-shrink-0 text-tertiary transition-transform duration-200",
+            isExpanded && "rotate-90"
+          )}
         />
 
         {/* Folder icon */}
-        {isExpanded ? <FolderOpen className="size-4 flex-shrink-0 text-secondary" /> : <Folder className="size-4 flex-shrink-0 text-secondary" />}
+        {isExpanded ? (
+          <FolderOpen className="size-4 flex-shrink-0 text-secondary" />
+        ) : (
+          <Folder className="size-4 flex-shrink-0 text-secondary" />
+        )}
 
         {/* Folder name or rename input */}
         {isRenaming ? (
@@ -191,7 +206,10 @@ export const FolderNode = observer(function FolderNode(props: Props) {
         <button
           type="button"
           className="flex-shrink-0 rounded p-1 text-secondary opacity-0 group-hover:opacity-100 hover:bg-layer-transparent-hover"
-          onClick={(e) => { e.stopPropagation(); handleMenuClick(e); }}
+          onClick={(e) => {
+            e.stopPropagation();
+            handleMenuClick(e);
+          }}
           title="Folder actions"
         >
           <MoreHorizontal className="size-4" />
@@ -251,7 +269,10 @@ export const FolderNode = observer(function FolderNode(props: Props) {
 
           {/* Empty state */}
           {childFolderIds.length === 0 && pagesInFolder.length === 0 && (
-            <div style={{ paddingLeft: `${(depth + 1) * 16 + 24}px` }} className="px-2 py-1.5 text-12 italic text-placeholder">
+            <div
+              style={{ paddingLeft: `${(depth + 1) * 16 + 24}px` }}
+              className="px-2 py-1.5 text-12 text-placeholder italic"
+            >
               Empty folder
             </div>
           )}
