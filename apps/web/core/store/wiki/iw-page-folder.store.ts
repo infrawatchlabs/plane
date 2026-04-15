@@ -1,10 +1,14 @@
 /**
  * PP-3: PageFolderStore — MobX store for wiki folder hierarchy.
  * Manages folder CRUD, page-to-folder mapping, and tree state (expanded/collapsed).
+ *
+ * NOTE: expandedFolders uses observable.ref with immutable replacement.
+ * This ensures MobX observer components always re-render on toggle,
+ * avoiding issues with ObservableMap tracking in nested observer components.
  */
 
 import { unset } from "lodash-es";
-import { makeObservable, observable, runInAction, action, computed, set, ObservableMap } from "mobx";
+import { makeObservable, observable, runInAction, action, computed, set } from "mobx";
 import { computedFn } from "mobx-utils";
 // types
 import type { TPageFolder, TPageFolderCreatePayload, TPageFolderUpdatePayload } from "./iw-page-folder.types";
@@ -63,7 +67,7 @@ export interface IPageFolderStore {
   // observables
   loader: TLoader;
   folders: Record<string, TPageFolder>;
-  expandedFolders: ObservableMap<string, boolean>;
+  expandedFolders: Record<string, boolean>;
   pageFolderMap: Record<string, string | null>; // pageId => folderId (null = root)
   // computed
   rootFolderIds: string[];
@@ -90,7 +94,8 @@ export class PageFolderStore implements IPageFolderStore {
   // observables
   loader: TLoader = undefined;
   folders: Record<string, TPageFolder> = {};
-  expandedFolders: ObservableMap<string, boolean> = observable.map<string, boolean>();
+  // observable.ref — tracked by reference. Every toggle creates a new object → triggers re-render.
+  expandedFolders: Record<string, boolean> = {};
   pageFolderMap: Record<string, string | null> = {};
   // service
   private service: PageFolderService;
@@ -100,7 +105,7 @@ export class PageFolderStore implements IPageFolderStore {
       // observables
       loader: observable.ref,
       folders: observable,
-      // expandedFolders is already an ObservableMap — no annotation needed
+      expandedFolders: observable.ref, // track by reference — immutable replacement on every change
       pageFolderMap: observable,
       // computed
       rootFolderIds: computed,
@@ -115,11 +120,8 @@ export class PageFolderStore implements IPageFolderStore {
       removePageFromMap: action,
     });
     this.service = new PageFolderService();
-    // Load persisted expanded state into the ObservableMap
-    const savedExpanded = loadExpandedState();
-    for (const [key, value] of Object.entries(savedExpanded)) {
-      this.expandedFolders.set(key, value);
-    }
+    // Load persisted state
+    this.expandedFolders = loadExpandedState();
     const savedPageMap = loadPageFolderMap();
     for (const [key, value] of Object.entries(savedPageMap)) {
       set(this.pageFolderMap, key, value);
@@ -199,25 +201,28 @@ export class PageFolderStore implements IPageFolderStore {
   getPageFolderId = computedFn((pageId: string): string | null => this.pageFolderMap[pageId] ?? null);
 
   /**
-   * Check if a folder is expanded. Uses ObservableMap.get() for reliable reactivity.
+   * Check if a folder is expanded.
    */
-  isFolderExpanded = (folderId: string): boolean => this.expandedFolders.get(folderId) ?? false;
+  isFolderExpanded = (folderId: string): boolean => !!this.expandedFolders[folderId];
 
   /**
-   * Toggle folder expanded/collapsed state.
+   * Toggle folder expanded/collapsed state. Replaces the entire object to trigger observable.ref.
    */
   toggleFolderExpanded = (folderId: string): void => {
-    const current = this.expandedFolders.get(folderId) ?? false;
-    this.expandedFolders.set(folderId, !current);
-    saveExpandedState(Object.fromEntries(this.expandedFolders));
+    const current = !!this.expandedFolders[folderId];
+    const next = { ...this.expandedFolders, [folderId]: !current };
+    console.log(`[STORE] toggle "${folderId}": ${current} → ${!current}`);
+    this.expandedFolders = next;
+    saveExpandedState(next);
   };
 
   /**
    * Set folder expanded state explicitly.
    */
   setFolderExpanded = (folderId: string, expanded: boolean): void => {
-    this.expandedFolders.set(folderId, expanded);
-    saveExpandedState(Object.fromEntries(this.expandedFolders));
+    const next = { ...this.expandedFolders, [folderId]: expanded };
+    this.expandedFolders = next;
+    saveExpandedState(next);
   };
 
   /**
@@ -309,8 +314,10 @@ export class PageFolderStore implements IPageFolderStore {
         }
       }
       unset(this.folders, folderId);
-      this.expandedFolders.delete(folderId);
-      saveExpandedState(Object.fromEntries(this.expandedFolders));
+      // Remove from expanded state — immutable replacement
+      const { [folderId]: _, ...rest } = this.expandedFolders;
+      this.expandedFolders = rest;
+      saveExpandedState(rest);
       savePageFolderMap({ ...this.pageFolderMap });
     });
   };

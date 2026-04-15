@@ -54,7 +54,7 @@ export const FolderContextMenu = observer(function FolderContextMenu(props: Prop
     <div
       ref={menuRef}
       className="shadow-lg fixed z-50 min-w-[180px] rounded-md border border-subtle bg-surface-1 py-1"
-      style={{ top: position.y, left: position.x }}
+      style={{ left: Math.max(40, position.x - 80) }}
     >
       {items.map((item) => (
         <button

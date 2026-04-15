@@ -46,7 +46,8 @@ export const FolderNode = observer(function FolderNode(props: Props) {
 
   const folderStore = usePageFolders();
   const folder = folderStore.folders[folderId];
-  const isExpanded = folderStore.isFolderExpanded(folderId);
+  // observable.ref — reading the ref triggers MobX tracking; every toggle replaces the whole object
+  const isExpanded = !!folderStore.expandedFolders[folderId];
   const childFolderIds = folderStore.getChildFolderIds(folderId);
   const pageIdsInFolder = folderStore.getPageIdsInFolder(folderId);
 
@@ -70,6 +71,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
   // Handlers
   const handleToggle = (e: React.MouseEvent) => {
     e.stopPropagation();
+    e.preventDefault();
     folderStore.toggleFolderExpanded(folderId);
   };
 
@@ -83,8 +85,8 @@ export const FolderNode = observer(function FolderNode(props: Props) {
     e.preventDefault();
     e.stopPropagation();
     const rect = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    // Position menu below the button, right-aligned to the button so it stays inside the sidebar
-    setContextMenu({ x: rect.right - 180, y: rect.bottom + 4 });
+    // Position menu directly below the button, right-aligned to button's right edge
+    setContextMenu({ x: rect.right, y: rect.bottom + 2 });
   };
 
   const handleStartRename = () => {
@@ -153,7 +155,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
         tabIndex={0}
         style={{ paddingLeft: `${indentPx}px` }}
         className={cn(
-          "group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-2 hover:bg-layer-transparent-hover",
+          "group flex w-full cursor-pointer items-center gap-1.5 rounded-md px-2 py-1 hover:bg-layer-transparent-hover",
           isDragOver && "ring-primary/30 bg-layer-transparent-hover ring-2"
         )}
         onClick={handleToggle}
@@ -163,6 +165,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
         onContextMenu={handleContextMenu}
         onDragOver={(e) => {
           e.preventDefault();
+          e.stopPropagation();
           onDragOver(e, folderId);
         }}
         onDrop={(e) => {
@@ -267,15 +270,7 @@ export const FolderNode = observer(function FolderNode(props: Props) {
             );
           })}
 
-          {/* Empty state */}
-          {childFolderIds.length === 0 && pagesInFolder.length === 0 && (
-            <div
-              style={{ paddingLeft: `${(depth + 1) * 16 + 24}px` }}
-              className="px-2 py-1.5 text-12 text-placeholder italic"
-            >
-              Empty folder
-            </div>
-          )}
+          {/* No "empty folder" message — empty folders just show as collapsed */}
         </div>
       )}
     </div>
