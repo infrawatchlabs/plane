@@ -6,3 +6,5 @@
 
 export * from "./workspace-wiki-page.store";
 export * from "./workspace-wiki-page";
+export * from "./iw-page-folder.store";
+export * from "./iw-page-folder.types";

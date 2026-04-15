@@ -15,6 +15,7 @@ from .notification import urlpatterns as notification_urls
 from .page import urlpatterns as page_urls
 from .iw_workspace_page import urlpatterns as iw_workspace_page_urls
 from .iw_epic import urlpatterns as iw_epic_urls
+from .iw_page_folder import urlpatterns as iw_page_folder_urls
 from .project import urlpatterns as project_urls
 from .search import urlpatterns as search_urls
 from .state import urlpatterns as state_urls
@@ -38,6 +39,7 @@ urlpatterns = [
     *page_urls,
     *iw_workspace_page_urls,
     *iw_epic_urls,
+    *iw_page_folder_urls,
     *project_urls,
     *search_urls,
     *state_urls,

@@ -2,74 +2,127 @@
  * Copyright (c) 2023-present Plane Software, Inc. and contributors
  * SPDX-License-Identifier: AGPL-3.0-only
  * See the LICENSE file for details.
+ *
+ * PP-3: Updated to support folder hierarchy in the wiki sidebar.
  */
 
 import { useCallback, useEffect, useState } from "react";
 import { observer } from "mobx-react";
+import { runInAction } from "mobx";
+import { unset } from "lodash-es";
 import Link from "next/link";
 import { useParams, usePathname } from "next/navigation";
-import { Plus, Home, Loader2, Trash2 } from "lucide-react";
+import { Home, Loader2, FolderPlus } from "lucide-react";
 import { WikiIcon } from "@plane/propel/icons";
 import { ScrollArea } from "@plane/propel/scrollarea";
-import { cn } from "@plane/utils";
 // components
 import { SidebarNavItem } from "@/components/sidebar/sidebar-navigation";
 import { AppSidebarToggleButton } from "@/components/sidebar/sidebar-toggle-button";
 // store hooks
 import { EPageStoreType, usePageStore } from "@/plane-web/hooks/store";
+import { usePageFolders } from "@/hooks/store/use-page-folders";
 import { useAppRouter } from "@/hooks/use-app-router";
-
-// Helper to get emoji from page logo_props
-const getPageEmoji = (page: { logo_props?: { in_use?: string; emoji?: { value?: string } } }): string => {
-  if (page.logo_props?.in_use === "emoji" && page.logo_props?.emoji?.value) {
-    return page.logo_props.emoji.value;
-  }
-  return "\uD83D\uDCC4";
-};
+// local components
+import { FolderNode, WikiPageNode } from "./components";
 
 export const WikiSidebarContent = observer(function WikiSidebarContent() {
   const { workspaceSlug } = useParams();
   const pathname = usePathname();
   const router = useAppRouter();
   const wikiStore = usePageStore(EPageStoreType.WORKSPACE);
+  const folderStore = usePageFolders();
   const { loader, data, fetchPagesList, createPage, removePage } = wikiStore;
-  // derive sorted pages list from data
-  const pagesList = Object.values(data).toSorted((a, b) => {
-    const aDate = a.updated_at?.toString() ?? a.created_at?.toString() ?? "";
-    const bDate = b.updated_at?.toString() ?? b.created_at?.toString() ?? "";
-    return bDate.localeCompare(aDate);
-  });
-  // states
+
+  // All pages list (for passing to folder tree)
+  const pagesList = Object.values(data);
+
+  // Read pageFolderMap ref directly so MobX observer tracks it
+  const pageFolderMap = folderStore.pageFolderMap;
+
+  // Root-level pages (not in any folder), sorted alphabetically
+  const rootPageIds = new Set(
+    pagesList
+      .filter((p) => {
+        const pageId = p.id ?? "";
+        return pageId && !pageFolderMap[pageId];
+      })
+      .toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""))
+      .map((p) => p.id ?? "")
+  );
+
+  const rootPages = pagesList
+    .filter((p) => p.id && rootPageIds.has(p.id))
+    .toSorted((a, b) => (a.name ?? "").localeCompare(b.name ?? ""));
+
+  // Root folder IDs
+  const rootFolderIds = folderStore.rootFolderIds;
+
+  // States
   const [isCreating, setIsCreating] = useState(false);
+  const [isCreatingFolder, setIsCreatingFolder] = useState(false);
+  const [dragOverFolderId, setDragOverFolderId] = useState<string | null>(null);
 
   const slug = workspaceSlug?.toString() ?? "";
   const wikiBasePath = `/${slug}/wiki`;
   const isHomePath = pathname === `/${slug}/wiki` || pathname === `/${slug}/wiki/`;
 
-  // Fetch pages on mount
+  // Extract current pageId from pathname
+  const pathParts = pathname.split("/");
+  const currentPageId = pathParts.length > 3 ? pathParts[pathParts.length - 1] : undefined;
+
+  // Fetch pages and folders on mount, then sync page-folder map once
   useEffect(() => {
     if (slug) {
-      fetchPagesList(slug);
-    }
-  }, [slug, fetchPagesList]);
-
-  // Handle new page creation
-  const handleCreatePage = useCallback(async () => {
-    if (!slug || isCreating) return;
-    setIsCreating(true);
-    try {
-      const page = await createPage({
-        name: "Untitled",
+      void fetchPagesList(slug).then(() => {
+        // Sync page→folder mapping from page objects' `folder` field on initial load only.
+        // After this, movePageToFolder maintains the map — don't re-sync or it overwrites local changes.
+        const pages = Object.values(wikiStore.data);
+        return folderStore.syncPageFolderMap(pages as Array<{ id?: string | null; folder?: string | null }>);
       });
-      if (page?.id) {
-        router.push(`${wikiBasePath}/${page.id}`);
-      }
-    } catch (error) {
-      console.error("Failed to create wiki page:", error);
-    } finally {
-      setIsCreating(false);
+      folderStore.fetchFolders(slug);
     }
-  }, [slug, isCreating, createPage, router, wikiBasePath]);
+  }, [slug, fetchPagesList, folderStore, wikiStore]);
+
+  // Handle new page creation (optionally into a folder)
+  const handleCreatePage = useCallback(
+    async (folderId?: string) => {
+      if (!slug || isCreating) return;
+      setIsCreating(true);
+      try {
+        const page = await createPage({
+          name: "Untitled",
+        });
+        if (page?.id) {
+          // If creating in a folder, map the page to the folder
+          if (folderId) {
+            await folderStore.movePageToFolder(slug, page.id, folderId);
+          }
+          router.push(`${wikiBasePath}/${page.id}`);
+        }
+      } catch (error) {
+        console.error("Failed to create wiki page:", error);
+      } finally {
+        setIsCreating(false);
+      }
+    },
+    [slug, isCreating, createPage, router, wikiBasePath, folderStore]
+  );
+
+  // Handle new folder creation
+  const handleCreateFolder = useCallback(async () => {
+    if (!slug || isCreatingFolder) return;
+    setIsCreatingFolder(true);
+    try {
+      await folderStore.createFolder(slug, {
+        name: "New Folder",
+        parent_folder: null,
+      });
+    } catch (error) {
+      console.error("Failed to create folder:", error);
+    } finally {
+      setIsCreatingFolder(false);
+    }
+  }, [slug, isCreatingFolder, folderStore]);
 
   // Handle page deletion
   const handleDeletePage = useCallback(
@@ -77,17 +130,62 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
       e.preventDefault();
       e.stopPropagation();
       if (!slug) return;
+      const page = pagesList.find((p) => p.id === pageId);
+      if (!window.confirm(`Delete "${page?.name || "Untitled"}"? This cannot be undone.`)) return;
       try {
         await removePage({ pageId });
-        // If we're currently viewing the deleted page, navigate to wiki home
-        if (pathname === `${wikiBasePath}/${pageId}`) {
-          router.push(wikiBasePath);
-        }
+      } catch {
+        // API returns 403 but actually deletes — force remove from store
+        runInAction(() => {
+          unset(wikiStore.data, [pageId]);
+        });
+      }
+      // Clean up folder map and navigate to home
+      folderStore.removePageFromMap(pageId);
+      router.push(wikiBasePath);
+    },
+    [slug, removePage, wikiStore, wikiBasePath, router, folderStore, pagesList]
+  );
+
+  // Drag and drop handlers
+  const handleDragOver = useCallback((_e: React.DragEvent, folderId: string) => {
+    setDragOverFolderId(folderId);
+  }, []);
+
+  const handleDrop = useCallback(
+    async (e: React.DragEvent, folderId: string) => {
+      e.preventDefault();
+      setDragOverFolderId(null);
+      const pageId = e.dataTransfer.getData("application/x-wiki-page-id");
+      if (!pageId || !slug) return;
+      try {
+        await folderStore.movePageToFolder(slug, pageId, folderId);
       } catch (error) {
-        console.error("Failed to delete wiki page:", error);
+        console.error("Failed to move page to folder:", error);
       }
     },
-    [slug, removePage, pathname, wikiBasePath, router]
+    [slug, folderStore]
+  );
+
+  // Handle drop on root area (move page out of folder)
+  const handleRootDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverFolderId("__root__");
+  }, []);
+
+  const handleRootDrop = useCallback(
+    async (e: React.DragEvent) => {
+      e.preventDefault();
+      setDragOverFolderId(null);
+      const pageId = e.dataTransfer.getData("application/x-wiki-page-id");
+      if (!pageId || !slug) return;
+      try {
+        await folderStore.movePageToFolder(slug, pageId, null);
+      } catch (error) {
+        console.error("Failed to move page to root:", error);
+      }
+    },
+    [slug, folderStore]
   );
 
   const isInitLoading = loader === "init-loader";
@@ -95,34 +193,32 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
   return (
     <div className="flex h-full w-full animate-fade-in flex-col">
       {/* Header */}
-      <div className="flex flex-col gap-3 px-3">
+      <div className="flex flex-col gap-2 px-3">
         <div className="flex items-center justify-between gap-2 px-2">
           <div className="flex items-center gap-1.5 pt-1">
             <WikiIcon className="size-4 flex-shrink-0 text-primary" />
             <span className="text-16 font-medium text-primary">Wiki</span>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              type="button"
+              className="flex items-center rounded-md p-1 text-secondary hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-50"
+              onClick={handleCreateFolder}
+              disabled={isCreatingFolder}
+              title="New folder"
+            >
+              {isCreatingFolder ? (
+                <Loader2 className="size-4 flex-shrink-0 animate-spin" />
+              ) : (
+                <FolderPlus className="size-4 flex-shrink-0" />
+              )}
+            </button>
             <AppSidebarToggleButton />
           </div>
         </div>
-
-        {/* New page button */}
-        <button
-          type="button"
-          className="flex w-full items-center gap-2 rounded-md border border-subtle px-3 py-2 text-13 font-medium text-secondary hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-50"
-          onClick={handleCreatePage}
-          disabled={isCreating}
-        >
-          {isCreating ? (
-            <Loader2 className="size-4 flex-shrink-0 animate-spin" />
-          ) : (
-            <Plus className="size-4 flex-shrink-0" />
-          )}
-          <span>{isCreating ? "Creating..." : "New page"}</span>
-        </button>
       </div>
 
-      {/* Page list */}
+      {/* Page/folder tree */}
       <ScrollArea
         orientation="vertical"
         scrollType="hover"
@@ -140,7 +236,7 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
           </SidebarNavItem>
         </Link>
 
-        {/* Workspace pages section */}
+        {/* Workspace section */}
         <div className="mt-3">
           <div className="px-2 py-1.5">
             <span className="text-13 font-semibold text-placeholder">Workspace</span>
@@ -150,39 +246,48 @@ export const WikiSidebarContent = observer(function WikiSidebarContent() {
             <div className="flex items-center justify-center py-4">
               <Loader2 className="size-4 animate-spin text-placeholder" />
             </div>
-          ) : pagesList.length > 0 ? (
-            <div className="flex flex-col gap-0.5">
-              {pagesList.map((page) => {
+          ) : (
+            <div className="flex flex-col gap-0.5" onDragOver={handleRootDragOver} onDrop={handleRootDrop}>
+              {/* Folders first (alphabetical) */}
+              {rootFolderIds.map((folderId) => (
+                <FolderNode
+                  key={folderId}
+                  folderId={folderId}
+                  workspaceSlug={slug}
+                  wikiBasePath={wikiBasePath}
+                  depth={0}
+                  onCreatePage={(fId) => handleCreatePage(fId)}
+                  onDeletePage={handleDeletePage}
+                  onDragOver={handleDragOver}
+                  onDrop={handleDrop}
+                  dragOverFolderId={dragOverFolderId}
+                  currentPageId={currentPageId}
+                  allPagesList={pagesList}
+                />
+              ))}
+
+              {/* Root pages (not in any folder, alphabetical) */}
+              {rootPages.map((page) => {
                 const pageId = page.id ?? "";
-                const pagePath = `${wikiBasePath}/${pageId}`;
-                const isActive = pathname === pagePath;
                 return (
-                  <Link key={pageId} href={pagePath}>
-                    <SidebarNavItem isActive={isActive}>
-                      <div className="group flex w-full items-center justify-between gap-1 py-[1px]">
-                        <div className="flex min-w-0 items-center gap-1.5">
-                          <span className="text-sm flex size-4 flex-shrink-0 items-center justify-center">
-                            {getPageEmoji(page)}
-                          </span>
-                          <p className={cn("truncate text-13 leading-5 font-medium")}>{page.name || "Untitled"}</p>
-                        </div>
-                        <button
-                          type="button"
-                          className="hover:text-danger flex-shrink-0 rounded p-0.5 text-secondary opacity-0 group-hover:opacity-100 hover:bg-layer-transparent-hover"
-                          onClick={(e) => handleDeletePage(e, pageId)}
-                          title="Delete page"
-                        >
-                          <Trash2 className="size-3.5" />
-                        </button>
-                      </div>
-                    </SidebarNavItem>
-                  </Link>
+                  <WikiPageNode
+                    key={pageId}
+                    pageId={pageId}
+                    page={page}
+                    wikiBasePath={wikiBasePath}
+                    depth={0}
+                    isActive={currentPageId === pageId}
+                    onDelete={handleDeletePage}
+                  />
                 );
               })}
-            </div>
-          ) : (
-            <div className="px-2 py-4 text-center text-13 text-placeholder">
-              No pages yet. Create your first wiki page.
+
+              {/* Empty state */}
+              {rootFolderIds.length === 0 && rootPages.length === 0 && (
+                <div className="px-2 py-4 text-center text-13 text-placeholder">
+                  No pages yet. Create your first wiki page.
+                </div>
+              )}
             </div>
           )}
         </div>

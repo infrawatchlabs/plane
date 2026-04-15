@@ -20,6 +20,8 @@ import { LogoSpinner } from "@/components/common/logo-spinner";
 import { PageHead } from "@/components/core/page-title";
 import type { TPageRootConfig, TPageRootHandlers } from "@/components/pages/editor/page-root";
 import { PageRoot } from "@/components/pages/editor/page-root";
+// PP-3: Breadcrumb
+import { FolderBreadcrumb } from "../../components/iw-folder-breadcrumb";
 // hooks
 import { useEditorConfig } from "@/hooks/editor";
 import { useEditorAsset } from "@/hooks/store/use-editor-asset";
@@ -173,6 +175,7 @@ function WikiPageDetailPage() {
     <>
       <PageHead title={name} />
       <div className="flex h-full flex-col justify-between">
+        <FolderBreadcrumb workspaceSlug={workspaceSlug} pageId={pageId} pageName={name ?? undefined} />
         <div className="relative flex h-full w-full flex-shrink-0 flex-col overflow-hidden">
           <PageRoot
             config={pageRootConfig}
