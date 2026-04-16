@@ -121,6 +121,12 @@ class PageDetailAPIEndpoint(BaseAPIView):
 
         data = PageDetailSerializer(page).data
         data["issue_ids"] = issue_ids
+
+        # Support ?format=markdown — convert HTML to markdown for API clients
+        if request.query_params.get("format") == "markdown" and data.get("description_html"):
+            from plane.utils.markdown import html_to_markdown
+            data["description_markdown"] = html_to_markdown(data["description_html"])
+
         return Response(data, status=status.HTTP_200_OK)
 
     def patch(self, request, slug, project_id, page_id):
