@@ -11,6 +11,11 @@ from .views import (
     EpicDetailAPIEndpoint,
     EpicAnalyticsAPIEndpoint,
 )
+from .views.workspace_page import (
+    WorkspacePageListCreateAPIEndpoint,
+    WorkspacePageDetailAPIEndpoint,
+    WorkspacePageDescriptionAPIEndpoint,
+)
 
 urlpatterns = [
     # Project Pages
@@ -28,6 +33,22 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/pages/<uuid:page_id>/description/",
         PageDescriptionAPIEndpoint.as_view(http_method_names=["get", "patch"]),
         name="iw-project-page-description",
+    ),
+    # Workspace Pages (Wiki)
+    path(
+        "workspaces/<str:slug>/pages/",
+        WorkspacePageListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="iw-workspace-pages",
+    ),
+    path(
+        "workspaces/<str:slug>/pages/<uuid:page_id>/",
+        WorkspacePageDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="iw-workspace-page-detail",
+    ),
+    path(
+        "workspaces/<str:slug>/pages/<uuid:page_id>/description/",
+        WorkspacePageDescriptionAPIEndpoint.as_view(http_method_names=["patch"]),
+        name="iw-workspace-page-description",
     ),
     # Epics
     path(

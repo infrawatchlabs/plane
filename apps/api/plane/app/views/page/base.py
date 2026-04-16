@@ -235,7 +235,7 @@ class PageViewSet(BaseViewSet):
             data["issue_ids"] = issue_ids
 
             # Convert description_html to markdown if requested
-            response_format = request.query_params.get("format", "html").lower()
+            response_format = request.query_params.get("response_format", "html").lower()
             if response_format == "markdown" and data.get("description_html"):
                 from plane.utils.markdown import html_to_markdown
                 data["description_markdown"] = html_to_markdown(data["description_html"])

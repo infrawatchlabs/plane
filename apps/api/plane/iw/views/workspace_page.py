@@ -1,8 +1,7 @@
-# InfraWatch — Project Pages API (API key authenticated)
-# Exposes project pages under /api/v1/ with X-Api-Key auth
+# InfraWatch — Workspace Wiki Pages API (API key authenticated)
+# Exposes workspace-level pages under /api/v1/ with X-Api-Key auth
 
 import json
-from datetime import datetime
 
 from django.core.serializers.json import DjangoJSONEncoder
 from django.db.models import (
@@ -15,7 +14,6 @@ from django.db.models import (
 from django.contrib.postgres.aggregates import ArrayAgg
 from django.contrib.postgres.fields import ArrayField
 from django.db.models.functions import Coalesce
-from django.http import StreamingHttpResponse
 
 from rest_framework import status
 from rest_framework.response import Response
@@ -28,18 +26,16 @@ from plane.app.serializers import (
 )
 from plane.db.models import (
     Page,
-    PageLog,
-    ProjectPage,
-    Project,
+    Workspace,
     UserFavorite,
-    ProjectMember,
+    WorkspaceMember,
 )
 from plane.bgtasks.page_transaction_task import page_transaction
 from plane.bgtasks.page_version_task import track_page_version
 
 
-def _page_queryset(user, slug, project_id):
-    """Shared queryset for project pages."""
+def _workspace_page_queryset(user, slug):
+    """Shared queryset for workspace-level (global) pages."""
     subquery = UserFavorite.objects.filter(
         user=user,
         entity_type="page",
@@ -47,15 +43,14 @@ def _page_queryset(user, slug, project_id):
         workspace__slug=slug,
     )
     return (
-        Page.objects.filter(workspace__slug=slug)
-        .filter(
-            projects__id=project_id,
-            project_pages__deleted_at__isnull=True,
+        Page.objects.filter(
+            workspace__slug=slug,
+            is_global=True,
         )
         .filter(parent__isnull=True)
         .filter(Q(owned_by=user) | Q(access=0))
         .select_related("workspace", "owned_by")
-        .prefetch_related("projects", "labels")
+        .prefetch_related("labels")
         .annotate(is_favorite=Exists(subquery))
         .annotate(
             label_ids=Coalesce(
@@ -67,7 +62,11 @@ def _page_queryset(user, slug, project_id):
                 Value([], output_field=ArrayField(UUIDField())),
             ),
             project_ids=Coalesce(
-                ArrayAgg("projects__id", distinct=True, filter=~Q(projects__id=True)),
+                ArrayAgg(
+                    "projects__id",
+                    distinct=True,
+                    filter=~Q(projects__id=True),
+                ),
                 Value([], output_field=ArrayField(UUIDField())),
             ),
         )
@@ -76,19 +75,21 @@ def _page_queryset(user, slug, project_id):
     )
 
 
-class PageListCreateAPIEndpoint(BaseAPIView):
-    """List and create project pages via API key."""
+class WorkspacePageListCreateAPIEndpoint(BaseAPIView):
+    """List and create workspace wiki pages via API key."""
 
-    def get(self, request, slug, project_id):
-        queryset = _page_queryset(request.user, slug, project_id)
+    def get(self, request, slug):
+        queryset = _workspace_page_queryset(request.user, slug)
         serializer = PageSerializer(queryset, many=True)
         return Response(serializer.data, status=status.HTTP_200_OK)
 
-    def post(self, request, slug, project_id):
+    def post(self, request, slug):
+        workspace = Workspace.objects.get(slug=slug)
         serializer = PageSerializer(
             data=request.data,
             context={
-                "project_id": project_id,
+                "project_id": None,
+                "workspace_id": workspace.id,
                 "owned_by_id": request.user.id,
                 "description_json": request.data.get("description_json", {}),
                 "description_binary": request.data.get("description_binary", None),
@@ -102,25 +103,20 @@ class PageListCreateAPIEndpoint(BaseAPIView):
                 old_description_html=None,
                 page_id=serializer.data["id"],
             )
-            page = _page_queryset(request.user, slug, project_id).filter(pk=serializer.data["id"]).first()
+            page = _workspace_page_queryset(request.user, slug).filter(pk=serializer.data["id"]).first()
             return Response(PageDetailSerializer(page).data, status=status.HTTP_201_CREATED)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 
-class PageDetailAPIEndpoint(BaseAPIView):
-    """Retrieve, update, and delete a project page via API key."""
+class WorkspacePageDetailAPIEndpoint(BaseAPIView):
+    """Retrieve, update, and delete a workspace wiki page via API key."""
 
-    def get(self, request, slug, project_id, page_id):
-        page = _page_queryset(request.user, slug, project_id).filter(pk=page_id).first()
+    def get(self, request, slug, page_id):
+        page = _workspace_page_queryset(request.user, slug).filter(pk=page_id).first()
         if page is None:
             return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        issue_ids = PageLog.objects.filter(
-            page_id=page_id, entity_name="issue"
-        ).values_list("entity_identifier", flat=True)
-
         data = PageDetailSerializer(page).data
-        data["issue_ids"] = issue_ids
 
         # Support ?response_format=markdown (not "format" — DRF reserves that for content negotiation)
         if request.query_params.get("response_format") == "markdown" and data.get("description_html"):
@@ -129,13 +125,12 @@ class PageDetailAPIEndpoint(BaseAPIView):
 
         return Response(data, status=status.HTTP_200_OK)
 
-    def patch(self, request, slug, project_id, page_id):
+    def patch(self, request, slug, page_id):
         try:
             page = Page.objects.get(
                 pk=page_id,
                 workspace__slug=slug,
-                projects__id=project_id,
-                project_pages__deleted_at__isnull=True,
+                is_global=True,
             )
         except Page.DoesNotExist:
             return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -162,28 +157,20 @@ class PageDetailAPIEndpoint(BaseAPIView):
             return Response(serializer.data, status=status.HTTP_200_OK)
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
-    def delete(self, request, slug, project_id, page_id):
+    def delete(self, request, slug, page_id):
         try:
             page = Page.objects.get(
                 pk=page_id,
                 workspace__slug=slug,
-                projects__id=project_id,
-                project_pages__deleted_at__isnull=True,
+                is_global=True,
             )
         except Page.DoesNotExist:
             return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
 
-        if page.archived_at is None:
-            return Response(
-                {"error": "The page should be archived before deleting"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if page.owned_by_id != request.user.id and not ProjectMember.objects.filter(
+        if page.owned_by_id != request.user.id and not WorkspaceMember.objects.filter(
             workspace__slug=slug,
             member=request.user,
             role=20,
-            project_id=project_id,
             is_active=True,
         ).exists():
             return Response(
@@ -193,50 +180,24 @@ class PageDetailAPIEndpoint(BaseAPIView):
 
         Page.objects.filter(
             parent_id=page_id,
-            projects__id=project_id,
             workspace__slug=slug,
-            project_pages__deleted_at__isnull=True,
+            is_global=True,
         ).update(parent=None)
 
         page.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
 
 
-class PageDescriptionAPIEndpoint(BaseAPIView):
-    """Get and update page description via API key."""
+class WorkspacePageDescriptionAPIEndpoint(BaseAPIView):
+    """Get and update workspace page description via API key."""
 
-    def get(self, request, slug, project_id, page_id):
+    def patch(self, request, slug, page_id):
         try:
             page = Page.objects.get(
                 Q(owned_by=request.user) | Q(access=0),
                 pk=page_id,
                 workspace__slug=slug,
-                projects__id=project_id,
-                project_pages__deleted_at__isnull=True,
-            )
-        except Page.DoesNotExist:
-            return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
-
-        binary_data = page.description_binary
-
-        def stream_data():
-            if binary_data:
-                yield binary_data
-            else:
-                yield b""
-
-        response = StreamingHttpResponse(stream_data(), content_type="application/octet-stream")
-        response["Content-Disposition"] = 'attachment; filename="page_description.bin"'
-        return response
-
-    def patch(self, request, slug, project_id, page_id):
-        try:
-            page = Page.objects.get(
-                Q(owned_by=request.user) | Q(access=0),
-                pk=page_id,
-                workspace__slug=slug,
-                projects__id=project_id,
-                project_pages__deleted_at__isnull=True,
+                is_global=True,
             )
         except Page.DoesNotExist:
             return Response({"error": "Page not found"}, status=status.HTTP_404_NOT_FOUND)
@@ -253,7 +214,6 @@ class PageDescriptionAPIEndpoint(BaseAPIView):
         )
 
         # When only HTML is provided (API usage), clear binary and json
-        # so the editor falls back to HTML instead of showing stale binary
         data = request.data.copy() if hasattr(request.data, "copy") else dict(request.data)
         if "description_html" in data and "description_binary" not in data:
             page.description_binary = None
