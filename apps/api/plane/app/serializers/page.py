@@ -186,6 +186,20 @@ class PageBinaryUpdateSerializer(serializers.Serializer):
     description_binary = serializers.CharField(required=False, allow_blank=True)
     description_html = serializers.CharField(required=False, allow_blank=True)
     description_json = serializers.JSONField(required=False, allow_null=True)
+    content_format = serializers.ChoiceField(
+        choices=["html", "markdown"],
+        default="html",
+        required=False,
+        help_text='Set to "markdown" to send description_html as markdown (converted to HTML before saving).',
+    )
+
+    def validate(self, attrs):
+        """If content_format is markdown, convert description_html from MD to HTML."""
+        content_format = attrs.pop("content_format", "html")
+        if content_format == "markdown" and "description_html" in attrs and attrs["description_html"]:
+            from plane.utils.markdown import markdown_to_html
+            attrs["description_html"] = markdown_to_html(attrs["description_html"])
+        return attrs
 
     def validate_description_binary(self, value):
         """Validate the base64-encoded binary data"""
