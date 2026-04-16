@@ -28,7 +28,7 @@ from plane.utils.timezone_converter import user_timezone_converter
 from collections import defaultdict
 from plane.utils.host import base_host
 from plane.utils.order_queryset import order_issue_queryset
-from .iw_hierarchy import validate_sub_issues_bulk
+from plane.utils.iw_hierarchy import validate_sub_issues_bulk
 
 
 class SubIssuesEndpoint(BaseAPIView):

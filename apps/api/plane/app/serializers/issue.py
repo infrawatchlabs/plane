@@ -47,7 +47,7 @@ from plane.utils.content_validator import (
     validate_html_content,
     validate_binary_data,
 )
-from plane.app.views.issue.iw_hierarchy import validate_parent_hierarchy
+from plane.utils.iw_hierarchy import validate_parent_hierarchy
 
 
 class IssueFlatSerializer(BaseSerializer):
