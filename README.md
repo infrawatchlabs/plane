@@ -1,165 +1,157 @@
-<br /><br />
+<br />
 
 <p align="center">
-<a href="https://plane.so">
-  <img src="https://media.docs.plane.so/logo/plane_github_readme.png" alt="Plane Logo" width="400">
-</a>
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset=".github/assets/plane-plus-lockup-light.svg">
+    <img src=".github/assets/plane-plus-lockup-dark.svg" alt="Plane × InfraWatch — Plane Plus" width="460">
+  </picture>
 </p>
-<p align="center"><b>Modern project management for all teams</b></p>
 
 <p align="center">
-    <a href="https://plane.so/"><b>Website</b></a> •
-    <a href="https://forum.plane.so"><b>Forum</b></a> •
-    <a href="https://x.com/planepowers"><b>X</b></a> •
-    <a href="https://docs.plane.so/"><b>Documentation</b></a>
+  <sub>Looking for the original upstream Plane README? →
+  <a href="./README-PLANE.md"><b>README-PLANE.md</b></a></sub>
 </p>
 
-<p>
-    <a href="https://app.plane.so/#gh-light-mode-only" target="_blank">
-      <img
-        src="https://media.docs.plane.so/GitHub-readme/github-top.webp"
-        alt="Plane Screens"
-        width="100%"
-      />
-    </a>
+<h1 align="center">Plane Plus</h1>
+<p align="center">
+  <b>An AI-agent-first project management platform, built on <a href="https://plane.so">Plane</a>.</b>
+</p>
+<p align="center">
+  by <a href="https://infrawatchlabs.com">InfraWatch Labs</a>
 </p>
 
-Meet [Plane](https://plane.so/), an open-source project management tool to track issues, run ~sprints~ cycles, and manage product roadmaps without the chaos of managing the tool itself. 🧘‍♀️
-
-> Plane is evolving every day. Your suggestions, ideas, and reported bugs help us immensely. Do not hesitate to join in the conversation on [Forum](https://forum.plane.so) or raise a GitHub issue. We read everything and respond to most.
-
-## 🚀 Installation
-
-Getting started with Plane is simple. Choose the setup that works best for you:
-
-- **Plane Cloud**
-  Sign up for a free account on [Plane Cloud](https://app.plane.so)—it's the fastest way to get up and running without worrying about infrastructure.
-
-- **Self-host Plane**
-  Prefer full control over your data and infrastructure? Install and run Plane on your own servers. Follow our detailed [deployment guides](https://developers.plane.so/self-hosting/overview) to get started.
-
-| Installation methods | Docs link                                                                                                                                                                               |
-| -------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Docker               | [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?style=for-the-badge&logo=docker&logoColor=white)](https://developers.plane.so/self-hosting/methods/docker-compose)         |
-| Kubernetes           | [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?style=for-the-badge&logo=kubernetes&logoColor=white)](https://developers.plane.so/self-hosting/methods/kubernetes) |
-
-`Instance admins` can configure instance settings with [God mode](https://developers.plane.so/self-hosting/govern/instance-admin).
-
-## 🌟 Features
-
-- **Work Items**
-  Efficiently create and manage tasks with a robust rich text editor that supports file uploads. Enhance organization and tracking by adding sub-properties and referencing related issues.
-
-- **Cycles**
-  Maintain your team’s momentum with Cycles. Track progress effortlessly using burn-down charts and other insightful tools.
-
-- **Modules**
-  Simplify complex projects by dividing them into smaller, manageable modules.
-
-- **Views**
-  Customize your workflow by creating filters to display only the most relevant issues. Save and share these views with ease.
-
-- **Pages**
-  Capture and organize ideas using Plane Pages, complete with AI capabilities and a rich text editor. Format text, insert images, add hyperlinks, or convert your notes into actionable items.
-
-- **Analytics**
-  Access real-time insights across all your Plane data. Visualize trends, remove blockers, and keep your projects moving forward.
-
-## 🛠️ Local development
-
-See [CONTRIBUTING](./CONTRIBUTING.md)
-
-## ⚙️ Built with
-
-[![React Router](https://img.shields.io/badge/-React%20Router-CA4245?logo=react-router&style=for-the-badge&logoColor=white)](https://reactrouter.com/)
-[![Django](https://img.shields.io/badge/Django-092E20?style=for-the-badge&logo=django&logoColor=green)](https://www.djangoproject.com/)
-[![Node JS](https://img.shields.io/badge/node.js-339933?style=for-the-badge&logo=Node.js&logoColor=white)](https://nodejs.org/en)
-
-## 📸 Screenshots
-
-  <p>
-    <a href="https://plane.so" target="_blank">
-      <img
-        src="https://media.docs.plane.so/GitHub-readme/github-work-items.webp"
-        alt="Plane Views"
-        width="100%"
-      />
-    </a>
-  </p>
-  <p>
-    <a href="https://plane.so" target="_blank">
-      <img
-        src="https://media.docs.plane.so/GitHub-readme/github-cycles.webp"
-        width="100%"
-      />
-    </a>
-  </p>
-  <p>
-    <a href="https://plane.so" target="_blank">
-      <img
-        src="https://media.docs.plane.so/GitHub-readme/github-modules.webp"
-        alt="Plane Cycles and Modules"
-        width="100%"
-      />
-    </a>
-  </p>
-  <p>
-    <a href="https://plane.so" target="_blank">
-      <img
-        src="https://media.docs.plane.so/GitHub-readme/github-views.webp"
-        alt="Plane Analytics"
-        width="100%"
-      />
-    </a>
-  </p>
-   <p>
-    <a href="https://plane.so" target="_blank">
-      <img
-        src="https://media.docs.plane.so/GitHub-readme/github-analytics.webp"
-        alt="Plane Pages"
-        width="100%"
-      />
-    </a>
-  </p>
+<p align="center">
+  <a href="https://infrawatchlabs.com"><b>Website</b></a> •
+  <a href="https://github.com/infrawatchlabs/plane-sdk-mcp"><b>SDK & MCP server</b></a> •
+  <a href="./README-PLANE.md"><b>Upstream Plane README</b></a>
 </p>
 
-## 📝 Documentation
+## What is Plane Plus?
 
-Explore Plane's [product documentation](https://docs.plane.so/) and [developer documentation](https://developers.plane.so/) to learn about features, setup, and usage.
+Plane Plus is an AI-agent-first fork of [Plane](https://plane.so), the open-source
+project management tool. We extend Plane with agent-ergonomic APIs, markdown-native
+pages, first-class epics, and a companion SDK + MCP server — so AI agents can plan,
+delegate, track, and reflect using the same substrate humans do.
 
-## ❤️ Community
+We track Plane upstream closely and contribute back where changes fit upstream
+philosophy. Everything upstream Plane ships still works in Plane Plus — we only
+add on top.
 
-Join the Plane community on [GitHub Discussions](https://github.com/orgs/makeplane/discussions) and our [Forum](https://forum.plane.so). We follow a [Code of conduct](https://github.com/makeplane/plane/blob/master/CODE_OF_CONDUCT.md) in all our community channels.
+## What's different from upstream Plane
 
-Feel free to ask questions, report bugs, participate in discussions, share ideas, request features, or showcase your projects. We’d love to hear from you!
+### API-key-authenticated v1 API
 
-## 🛡️ Security
+Upstream Plane authenticates via session cookie or JWT — great for browsers,
+awkward for headless clients. We add a parallel `/api/v1/...` surface that
+authenticates with a simple `X-Api-Key` header, so SDKs, scripts, and LLM agents
+are first-class clients:
 
-If you discover a security vulnerability in Plane, please report it responsibly instead of opening a public issue. We take all legitimate reports seriously and will investigate them promptly. See [Security policy](https://github.com/makeplane/plane/blob/master/SECURITY.md) for more info.
+| Surface              | Example endpoint                                                                |
+| -------------------- | ------------------------------------------------------------------------------- |
+| Workspace wiki pages | `POST /api/v1/workspaces/<slug>/pages/`                                         |
+| Page folders         | `POST /api/v1/workspaces/<slug>/page-folders/`                                  |
+| Project pages        | `GET  /api/v1/workspaces/<slug>/projects/<project_id>/pages/`                   |
+| Epics                | `POST /api/v1/workspaces/<slug>/projects/<project_id>/iw-epics/`                |
+| Epic analytics       | `GET  /api/v1/workspaces/<slug>/projects/<project_id>/iw-epics/<id>/analytics/` |
+| Intake (triage)      | Project intake endpoints for agent hand-offs                                    |
 
-To disclose any security issues, please email us at security@plane.so.
+Grab an API key from your workspace settings, set `X-Api-Key: <key>`, go.
 
-## 🤝 Contributing
+### Markdown round-trip on pages
 
-There are many ways you can contribute to Plane:
+Plane stores page content as HTML internally. Agents and CLIs work in markdown.
+We bridge the two at the API boundary:
 
-- Report [bugs](https://github.com/makeplane/plane/issues/new?assignees=srinivaspendem%2Cpushya22&labels=%F0%9F%90%9Bbug&projects=&template=--bug-report.yaml&title=%5Bbug%5D%3A+) or submit [feature requests](https://github.com/makeplane/plane/issues/new?assignees=srinivaspendem%2Cpushya22&labels=%E2%9C%A8feature&projects=&template=--feature-request.yaml&title=%5Bfeature%5D%3A+).
-- Review the [documentation](https://docs.plane.so/) and submit [pull requests](https://github.com/makeplane/docs) to improve it—whether it's fixing typos or adding new content.
-- Talk or write about Plane or any other ecosystem integration and [let us know](https://forum.plane.so)!
-- Show your support by upvoting [popular feature requests](https://github.com/makeplane/plane/issues).
+- **Write**: send `"content_format": "markdown"` alongside `description_html`
+  → backend converts MD → HTML before storing.
+- **Read**: add `?response_format=markdown` → backend converts stored HTML → MD
+  on read, returned as `description_markdown`.
 
-Please read [CONTRIBUTING.md](https://github.com/makeplane/plane/blob/master/CONTRIBUTING.md) for details on the process for submitting pull requests to us.
+Storage stays HTML-only, no DB changes. Round-trip is lossless for standard
+markdown (headers, lists, links, code, tables, emphasis, block quotes).
 
-### Repo activity
+### Epics with analytics
 
-![Plane Repo Activity](https://repobeats.axiom.co/api/embed/2523c6ed2f77c082b7908c33e2ab208981d76c39.svg "Repobeats analytics image")
+- Dedicated `/api/v1/.../iw-epics/` endpoints so agents don't have to reason
+  about Plane's polymorphic issue types.
+- Analytics endpoint returns children-by-state, completion percentages, and
+  other rollups ready to feed dashboards or progress reports.
+- Hierarchy depth validation prevents accidentally nesting epic children N
+  levels deep.
 
-### We couldn't have done this without you.
+### Member-only project visibility
 
-<a href="https://github.com/makeplane/plane/graphs/contributors">
-  <img src="https://contrib.rocks/image?repo=makeplane/plane" />
-</a>
+Tighter access control: a project can be restricted so only explicit members see
+it, even within a workspace. Useful for multi-team workspaces where some
+projects should stay private.
+
+### Companion SDK + MCP server
+
+Every endpoint above is typed and tool-callable via
+[`plane-sdk-mcp`](https://github.com/infrawatchlabs/plane-sdk-mcp) — a Python
+SDK plus a FastMCP server. AI agents manage Plane workspaces without learning
+the REST surface.
+
+```python
+from plane_sdk import PlaneClient
+
+client = PlaneClient(api_key="...", workspace_slug="iwl-org")
+epic  = client.create_epic(project_id="...", name="Q2 launch")
+child = client.create_work_item(
+    project_id="...", name="Ship metrics fix", parent_id=epic["id"],
+)
+```
+
+MCP-aware agents (Claude Code, etc.) can do the same via tool calls:
+
+```
+mcp__plane__create_work_item(project_id="...", name="...", parent_id="<epic-id>")
+```
+
+## Installation
+
+Plane Plus is a drop-in replacement for upstream Plane — same docker-compose,
+same Kubernetes charts, same environment variables. Follow the upstream
+[self-hosting guides](https://developers.plane.so/self-hosting/overview) and
+point them at our image / this repository.
+
+## Local development
+
+Same workflow as upstream Plane — see [CONTRIBUTING.md](./CONTRIBUTING.md).
+
+## Upstream: Plane
+
+Plane Plus wouldn't exist without the excellent work of the Plane team.
+
+- Upstream repository: [makeplane/plane](https://github.com/makeplane/plane)
+- Upstream product: [plane.so](https://plane.so)
+- Upstream docs: [docs.plane.so](https://docs.plane.so) and
+  [developers.plane.so](https://developers.plane.so)
+- Upstream README (snapshot at fork point): [README-PLANE.md](./README-PLANE.md)
 
 ## License
 
-This project is licensed under the [GNU Affero General Public License v3.0](https://github.com/makeplane/plane/blob/master/LICENSE.txt).
+Plane Plus inherits the [GNU Affero General Public License v3.0](./LICENSE.txt)
+from upstream Plane. All InfraWatch modifications are covered by the same
+license.
+
+## Security
+
+- **Plane Plus-specific modifications** (anything under `plane/iw/…` in the API,
+  or InfraWatch-prefixed code): email **security@infrawatchlabs.com**.
+- **Upstream Plane code**: please use upstream's channels — see
+  [upstream security policy](https://github.com/makeplane/plane/blob/master/SECURITY.md).
+
+## Contributing
+
+Contributions are welcome. Where possible, we'd rather see upstream-compatible
+improvements contributed to the upstream Plane project; InfraWatch-specific
+additions (agent APIs, MCP integration, SDK features) belong here.
+
+---
+
+<p align="center">
+  <em>Plane Plus is developed and maintained by
+  <a href="https://infrawatchlabs.com">InfraWatch Labs</a>, maker of the
+  InfraWatch AI-agent platform.</em>
+</p>
