@@ -22,7 +22,7 @@
 
 <p align="center">
   <a href="https://infrawatchlabs.com"><b>Website</b></a> •
-  <a href="https://github.com/infrawatchlabs/plane-sdk-mcp"><b>SDK & MCP server</b></a> •
+  <a href="https://github.com/infrawatchlabs/plane-plus-sdk-mcp"><b>SDK & MCP server</b></a> •
   <a href="./README-PLANE.md"><b>Upstream Plane README</b></a>
 </p>
 
@@ -88,7 +88,7 @@ projects should stay private.
 ### Companion SDK + MCP server
 
 Every endpoint above is typed and tool-callable via
-[`plane-sdk-mcp`](https://github.com/infrawatchlabs/plane-sdk-mcp) — a Python
+[`plane-plus-sdk-mcp`](https://github.com/infrawatchlabs/plane-plus-sdk-mcp) — a Python
 SDK plus a FastMCP server. AI agents manage Plane workspaces without learning
 the REST surface.
 
