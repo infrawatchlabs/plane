@@ -10,6 +10,8 @@ from .views import (
     EpicListCreateAPIEndpoint,
     EpicDetailAPIEndpoint,
     EpicAnalyticsAPIEndpoint,
+    WorkspacePageFolderListCreateAPIEndpoint,
+    WorkspacePageFolderDetailAPIEndpoint,
 )
 from .views.workspace_page import (
     WorkspacePageListCreateAPIEndpoint,
@@ -49,6 +51,17 @@ urlpatterns = [
         "workspaces/<str:slug>/pages/<uuid:page_id>/description/",
         WorkspacePageDescriptionAPIEndpoint.as_view(http_method_names=["patch"]),
         name="iw-workspace-page-description",
+    ),
+    # Workspace Wiki Page Folders
+    path(
+        "workspaces/<str:slug>/page-folders/",
+        WorkspacePageFolderListCreateAPIEndpoint.as_view(http_method_names=["get", "post"]),
+        name="iw-workspace-page-folders",
+    ),
+    path(
+        "workspaces/<str:slug>/page-folders/<uuid:folder_id>/",
+        WorkspacePageFolderDetailAPIEndpoint.as_view(http_method_names=["get", "patch", "delete"]),
+        name="iw-workspace-page-folder-detail",
     ),
     # Epics
     path(

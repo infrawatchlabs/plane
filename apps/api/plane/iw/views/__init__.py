@@ -9,3 +9,8 @@ from .epic import (
     EpicDetailAPIEndpoint,
     EpicAnalyticsAPIEndpoint,
 )
+
+from .page_folder import (
+    WorkspacePageFolderListCreateAPIEndpoint,
+    WorkspacePageFolderDetailAPIEndpoint,
+)
