@@ -181,9 +181,28 @@ class PageVersionDetailSerializer(BaseSerializer):
 
 
 class PageBinaryUpdateSerializer(serializers.Serializer):
-    """Serializer for updating page binary description with validation"""
+    """Serializer for updating page binary description with validation.
 
-    description_binary = serializers.CharField(required=False, allow_blank=True)
+    Bugfix 2026-04-22 — two related issues:
+
+    1. description_binary accepted empty string (allow_blank=True) but then
+       saved "" to the model's BinaryField, which 500s. Now also accepts
+       null explicitly and normalizes any empty/null to None on the model.
+
+    2. description_html updates did not reset description_binary, so the
+       collaborative editor kept rendering stale Yjs CRDT state even after
+       a hard HTML replace. Observed: 4-60x H1 heading accumulation on
+       plan pages despite description_html being cleanly replaced. Fix:
+       when description_html changes via this serializer without an
+       explicit description_binary payload, null out the binary so the
+       editor regenerates its CRDT state from the new HTML on next load.
+       (Live collaborative edits use a different websocket path, not this
+       PATCH endpoint, so this doesn't affect interactive editing.)
+    """
+
+    description_binary = serializers.CharField(
+        required=False, allow_blank=True, allow_null=True
+    )
     description_html = serializers.CharField(required=False, allow_blank=True)
     description_json = serializers.JSONField(required=False, allow_null=True)
     content_format = serializers.ChoiceField(
@@ -202,9 +221,13 @@ class PageBinaryUpdateSerializer(serializers.Serializer):
         return attrs
 
     def validate_description_binary(self, value):
-        """Validate the base64-encoded binary data"""
-        if not value:
-            return value
+        """Validate the base64-encoded binary data.
+
+        Normalizes empty string and null to None so the model's BinaryField
+        receives a valid value (setting it to "" silently 500s on save).
+        """
+        if value in (None, ""):
+            return None
 
         try:
             # Decode the base64 data
@@ -235,9 +258,21 @@ class PageBinaryUpdateSerializer(serializers.Serializer):
         return sanitized_html if sanitized_html is not None else value
 
     def update(self, instance, validated_data):
-        """Update the page instance with validated data"""
+        """Update the page instance with validated data.
+
+        When description_html is being replaced without an explicit
+        description_binary in the payload, auto-null the binary so the
+        collaborative editor regenerates its CRDT state from the new HTML
+        on next load. Without this, the editor renders stale accumulated
+        content from an out-of-sync binary state.
+        """
         if "description_binary" in validated_data:
             instance.description_binary = validated_data.get("description_binary")
+        elif "description_html" in validated_data:
+            # HTML changed, binary not explicitly set — reset binary so editor
+            # rebuilds from new HTML. Matches the duplicate-page semantic
+            # (see views/page/base.py line ~605: page.description_binary = None).
+            instance.description_binary = None
 
         if "description_html" in validated_data:
             instance.description_html = validated_data.get("description_html")
