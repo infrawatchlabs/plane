@@ -69,7 +69,7 @@ const fetchDocument = async ({ context, documentName: pageId, instance }: FetchP
   }
 };
 
-const storeDocument = async ({
+export const storeDocument = async ({
   context,
   state: pageBinaryData,
   documentName: pageId,
@@ -77,6 +77,29 @@ const storeDocument = async ({
 }: StorePayloadWithContext) => {
   try {
     const service = getPageService(context.documentType, context);
+
+    // Race guard: if description_binary in DB is NULL/empty, the REST serializer
+    // (PageBinaryUpdateSerializer.update — PR #29) just nulled it during a
+    // /pages/<id>/ PATCH that updated description_html. Our in-memory Yjs state
+    // pre-dates that PATCH, so flushing it would clobber the fresh HTML.
+    //
+    // Abort this flush and force-close all clients so they reconnect, hit the
+    // empty-binary branch in fetchDocument, and rebuild Yjs state from the new
+    // description_html. Any unsaved local edits between the last successful
+    // flush and the REST PATCH are intentionally discarded — a REST PATCH is
+    // explicit authoritative intent.
+    //
+    // See .claude/specs/plane-live-race-guard.md (PP-68) for full context.
+    const currentBinary = (await service.fetchDescriptionBinary(pageId)) as Buffer;
+    if (!currentBinary || currentBinary.byteLength === 0) {
+      logger.warn(
+        `[storeDocument] external REST update detected for ${pageId} ` +
+          `(description_binary is null/empty); aborting flush and force-closing clients`
+      );
+      await forceCloseDocumentAcrossServers(instance, pageId, ForceCloseReason.ADMIN_REQUEST, CloseCode.FORCE_CLOSE);
+      return;
+    }
+
     // convert binary data to all formats
     const { contentBinaryEncoded, contentHTML, contentJSON } = getAllDocumentFormatsFromDocumentEditorBinaryData(
       pageBinaryData,
