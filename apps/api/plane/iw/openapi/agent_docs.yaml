@@ -1,0 +1,277 @@
+# InfraWatch — Agent Docs API (OpenAPI 3.1)
+#
+# Workspace-level markdown notes with optimistic-concurrency single-writer
+# semantics. Replaces the local Obsidian vault for agent state (plans, memory,
+# learnings, specs, blog drafts, inbox, curations).
+#
+# Authoritative source for the API surface — Surya (frontend, PP-71) and Arun
+# (migration script, PP-72) consume this. If the implementation drifts from
+# this doc, fix the doc as part of the same commit.
+#
+# Auth: same `X-Api-Key` header as every other plane/iw/ endpoint.
+
+openapi: "3.1.0"
+info:
+  title: InfraWatch Agent Docs
+  version: "1.0.0"
+  description: |
+    Workspace-level pure-markdown store with ETag/If-Match optimistic
+    concurrency. Folder layout is encoded in the path itself — there is no
+    separate folder table. v1 only accepts `.md` files.
+
+    Concurrency rules:
+      - Every write increments the doc's `version` counter.
+      - Servers return `ETag: "<version>"` on every read.
+      - PUT requires `If-Match: "<version>"` to update an existing doc.
+      - DELETE requires `If-Match` for symmetry.
+      - `If-Match: "*"` overrides the version check ("force write"). Used
+        by the migration script and the agent vault helper.
+      - Stale `If-Match` → 409. Missing `If-Match` on update → 412.
+
+servers:
+  - url: /api/v1
+
+security:
+  - apiKey: []
+
+paths:
+  /workspaces/{slug}/agent-docs/:
+    get:
+      summary: List doc summaries (no body) under an optional path prefix.
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - in: query
+          name: prefix
+          schema:
+            type: string
+            maxLength: 256
+          description: |
+            Path prefix to filter by (e.g. `plans/` or `memory/vikrant/`).
+            Empty string returns all docs in the workspace.
+      responses:
+        "200":
+          description: List of doc summaries ordered by path.
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/AgentDocSummary"
+        "400":
+          description: Invalid prefix.
+
+  /workspaces/{slug}/agent-docs/{doc_path}:
+    parameters:
+      - $ref: "#/components/parameters/Slug"
+      - $ref: "#/components/parameters/DocPath"
+    get:
+      summary: Fetch a single doc.
+      responses:
+        "200":
+          description: Doc body and metadata.
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted version string, e.g. `"7"`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDoc"
+        "400":
+          description: Invalid path.
+        "404":
+          description: Doc does not exist.
+    put:
+      summary: Create or update a doc.
+      parameters:
+        - in: header
+          name: If-Match
+          schema:
+            type: string
+          description: |
+            Required to update an existing doc. Carries the version the
+            client believes is current (quoted, per RFC 7232). Use `"*"`
+            to force-write regardless of version. Omit when creating a new
+            doc.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+              required: [content]
+      responses:
+        "200":
+          description: Updated. ETag header carries the new version.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDocWriteAck"
+        "201":
+          description: Created.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDocWriteAck"
+        "400":
+          description: Invalid path or body.
+        "409":
+          description: |
+            `If-Match` value is stale. Response includes `current_version`
+            so the client can refetch + retry.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictError"
+        "412":
+          description: |
+            `If-Match` missing on a PUT to an existing doc, or `If-Match`
+            present but doc does not exist.
+    delete:
+      summary: Delete a doc.
+      parameters:
+        - in: header
+          name: If-Match
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted (idempotent — also returned if the doc never existed).
+        "400":
+          description: Invalid path.
+        "409":
+          description: Stale If-Match.
+        "412":
+          description: If-Match missing.
+
+  /workspaces/{slug}/agent-docs/{doc_path}/preview/:
+    post:
+      summary: Render markdown to HTML for preview.
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - $ref: "#/components/parameters/DocPath"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+                  description: |
+                    Optional override — render this body instead of the
+                    stored content. Used for "preview while typing" in the
+                    editor pane.
+      responses:
+        "200":
+          description: Rendered HTML.
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  html:
+                    type: string
+        "400":
+          description: Invalid path or body.
+        "404":
+          description: |
+            Doc does not exist (only when `content` override is omitted —
+            with override the renderer doesn't need a stored doc).
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  parameters:
+    Slug:
+      in: path
+      name: slug
+      required: true
+      schema:
+        type: string
+      description: Workspace slug.
+    DocPath:
+      in: path
+      name: doc_path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-zA-Z0-9._\\-/]+\\.md$"
+        maxLength: 256
+      description: |
+        Markdown file path within the workspace, e.g.
+        `plans/vikrant.md` or `memory/vikrant/2026-04-26.md`. Must end in
+        `.md`. No leading `/`, no `..`, no double slashes.
+
+  schemas:
+    AgentDocSummary:
+      type: object
+      properties:
+        path:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        updated_at:
+          type: string
+          format: date-time
+        updated_by_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_by_id:
+          type: string
+          format: uuid
+          nullable: true
+      required: [path, version, updated_at]
+    AgentDoc:
+      allOf:
+        - $ref: "#/components/schemas/AgentDocSummary"
+        - type: object
+          properties:
+            content:
+              type: string
+          required: [content]
+    AgentDocWriteAck:
+      type: object
+      properties:
+        path:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        created:
+          type: boolean
+      required: [path, version, created]
+    ConflictError:
+      type: object
+      properties:
+        error:
+          type: string
+        current_version:
+          type: integer
+          minimum: 1
+          nullable: true
+      required: [error]

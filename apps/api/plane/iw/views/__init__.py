@@ -14,3 +14,9 @@ from .page_folder import (
     WorkspacePageFolderListCreateAPIEndpoint,
     WorkspacePageFolderDetailAPIEndpoint,
 )
+
+from .agent_doc import (
+    AgentDocListAPIEndpoint,
+    AgentDocDetailAPIEndpoint,
+    AgentDocPreviewAPIEndpoint,
+)

@@ -12,6 +12,9 @@ from .views import (
     EpicAnalyticsAPIEndpoint,
     WorkspacePageFolderListCreateAPIEndpoint,
     WorkspacePageFolderDetailAPIEndpoint,
+    AgentDocListAPIEndpoint,
+    AgentDocDetailAPIEndpoint,
+    AgentDocPreviewAPIEndpoint,
 )
 from .views.workspace_page import (
     WorkspacePageListCreateAPIEndpoint,
@@ -79,5 +82,24 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/iw-epics/<uuid:pk>/analytics/",
         EpicAnalyticsAPIEndpoint.as_view(http_method_names=["get"]),
         name="iw-epic-analytics",
+    ),
+    # Agent Docs (PP-70) — workspace-level markdown notes with optimistic
+    # concurrency. Path uses Django's `path:` converter so embedded slashes
+    # in the doc path (e.g. `plans/vikrant.md`) are passed through as a
+    # single argument to the view.
+    path(
+        "workspaces/<str:slug>/agent-docs/",
+        AgentDocListAPIEndpoint.as_view(http_method_names=["get"]),
+        name="iw-agent-docs",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-docs/<path:doc_path>/preview/",
+        AgentDocPreviewAPIEndpoint.as_view(http_method_names=["post"]),
+        name="iw-agent-doc-preview",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-docs/<path:doc_path>",
+        AgentDocDetailAPIEndpoint.as_view(http_method_names=["get", "put", "delete"]),
+        name="iw-agent-doc-detail",
     ),
 ]
