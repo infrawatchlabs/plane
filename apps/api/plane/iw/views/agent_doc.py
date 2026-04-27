@@ -6,6 +6,16 @@
 # `get_text(path)`, `put_text(path, content)`, `list_dir(path)`, `delete(path)`
 # verbs map cleanly onto these endpoints.
 #
+# URL shape (adopted from Surya's PP-71 frontend contract):
+#   GET    /api/v1/workspaces/<slug>/agent-docs/?prefix=<optional>&q=<optional>
+#   GET    /api/v1/workspaces/<slug>/agent-docs/doc/?path=<full/path.md>
+#   PUT    /api/v1/workspaces/<slug>/agent-docs/doc/?path=<full/path.md>
+#   DELETE /api/v1/workspaces/<slug>/agent-docs/doc/?path=<full/path.md>
+#
+# Path is passed as a query string, not a URL segment, to avoid double
+# URL-encoding paths-with-slashes and to match Plane's existing routing
+# convention which uses UUIDs in the URL path, never arbitrary strings.
+#
 # Concurrency contract (see PP-70 spec):
 #   - GET returns body + `ETag: "<version>"` header.
 #   - PUT requires `If-Match: "<version>"` to update an existing doc; missing
@@ -16,11 +26,17 @@
 #     `select_for_update()` so concurrent PUTs against the same prior version
 #     can't both win. One commits, the other sees the bumped version on its
 #     next read inside the txn and returns 409.
+#
+# Response body conventions:
+#   - Errors use the DRF-standard `{"detail": "<msg>"}` shape.
+#   - 409 conflicts additionally carry `server_version: <int>` so the UI can
+#     show the user "your version was N+1" without a follow-up GET.
+#   - List response wraps the array as `{"docs": [...]}` so we can add
+#     pagination/cursor fields later without a breaking change.
 
 import re
 
 from django.db import transaction
-from django.shortcuts import get_object_or_404
 from rest_framework import status
 from rest_framework.response import Response
 
@@ -49,12 +65,32 @@ def _validate_path(path: str) -> str | None:
         return f"path must be 1..{_MAX_PATH_LEN} chars"
     if path.startswith("/"):
         return "path must not start with /"
+    if not path.endswith(".md"):
+        return "path must end with .md"
     if ".." in path.split("/"):
         return "path must not contain .. segments"
     if "//" in path:
         return "path must not contain // (empty segments)"
     if not _PATH_RE.match(path):
         return "path must match ^[a-zA-Z0-9._\\-/]+\\.md$"
+    return None
+
+
+def _validate_prefix(prefix: str) -> str | None:
+    """Prefix is more permissive than a full path — it doesn't need .md and
+    can be empty or a directory-style string. We still reject the obvious
+    abuse vectors."""
+    if len(prefix) > _MAX_PATH_LEN:
+        return f"prefix must be <= {_MAX_PATH_LEN} chars"
+    if prefix.startswith("/"):
+        return "prefix must not start with /"
+    if ".." in prefix.split("/"):
+        return "prefix must not contain .. segments"
+    if "//" in prefix:
+        return "prefix must not contain //"
+    # Only the character class — no `.md` requirement.
+    if not re.match(r"^[a-zA-Z0-9._\-/]*$", prefix):
+        return "prefix must match ^[a-zA-Z0-9._\\-/]*$"
     return None
 
 
@@ -89,71 +125,80 @@ def _etag(version: int) -> str:
     return f'"{version}"'
 
 
+def _err400(detail: str) -> Response:
+    return Response({"detail": detail}, status=status.HTTP_400_BAD_REQUEST)
+
+
 # -------------------------------------------------------------- endpoints --
 
 
 class AgentDocListAPIEndpoint(BaseAPIView):
-    """GET /api/v1/workspaces/<slug>/agent-docs/?prefix=<path>
+    """GET /api/v1/workspaces/<slug>/agent-docs/?prefix=<path>&q=<query>
 
     List doc summaries (no body). Optional `?prefix=` filters to paths starting
     with that string — supports the tree-navigation use case where the client
-    asks for everything under `plans/` or `memory/vikrant/`.
+    asks for everything under `plans/` or `memory/vikrant/`. Optional `?q=`
+    filters by case-insensitive substring match against `content` (Postgres
+    `ILIKE` via Django's `icontains`). MGupta accepted this as the v1 search
+    surface — we'll graduate to a tsvector + GIN index when the doc count
+    or query latency warrants it.
     """
 
     def get(self, request, slug):
         prefix = request.query_params.get("prefix", "")
-        if prefix and _validate_prefix(prefix) is not None:
-            return Response(
-                {"error": _validate_prefix(prefix)},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        q = request.query_params.get("q", "").strip()
+
+        if prefix:
+            err = _validate_prefix(prefix)
+            if err:
+                return _err400(err)
+
+        # `q` has no length-limit-driven security risk (it's bound to a
+        # parameterised LIKE), but cap it to keep pathological queries off
+        # the box. 256 chars matches the path cap and is plenty for FTS.
+        if len(q) > _MAX_PATH_LEN:
+            return _err400(f"q must be <= {_MAX_PATH_LEN} chars")
 
         qs = AgentDoc.objects.filter(workspace__slug=slug)
         if prefix:
             qs = qs.filter(path__startswith=prefix)
-        qs = qs.order_by("path").values(
-            "path", "version", "updated_at", "updated_by_id", "created_by_id"
-        )
+        if q:
+            qs = qs.filter(content__icontains=q)
+        rows = qs.order_by("path").values("path", "version", "updated_at")
 
-        return Response(list(qs), status=status.HTTP_200_OK)
-
-
-def _validate_prefix(prefix: str) -> str | None:
-    """Prefix is more permissive than a full path — it doesn't need .md and
-    can be empty or a directory-style string. We still reject the obvious
-    abuse vectors."""
-    if len(prefix) > _MAX_PATH_LEN:
-        return f"prefix must be <= {_MAX_PATH_LEN} chars"
-    if prefix.startswith("/"):
-        return "prefix must not start with /"
-    if ".." in prefix.split("/"):
-        return "prefix must not contain .. segments"
-    if "//" in prefix:
-        return "prefix must not contain //"
-    # Only the character class — no `.md` requirement.
-    if not re.match(r"^[a-zA-Z0-9._\-/]*$", prefix):
-        return "prefix must match ^[a-zA-Z0-9._\\-/]*$"
-    return None
+        return Response({"docs": list(rows)}, status=status.HTTP_200_OK)
 
 
 class AgentDocDetailAPIEndpoint(BaseAPIView):
-    """GET / PUT / DELETE /api/v1/workspaces/<slug>/agent-docs/<path>
+    """GET / PUT / DELETE /api/v1/workspaces/<slug>/agent-docs/doc/?path=<path>
 
-    `<path>` uses Django's `path:` converter so embedded slashes work
-    naturally — the client passes `plans/vikrant.md` and we read it as a
-    single argument here.
+    `path` is a query parameter rather than a URL segment so we don't have
+    to deal with double URL-encoding the slashes inside agent-doc paths
+    (e.g. `plans/vikrant.md`). The DRF query-params layer URL-decodes once,
+    which is exactly what we want.
     """
 
-    def get(self, request, slug, doc_path):
+    def _read_path(self, request) -> tuple[str | None, Response | None]:
+        """Pull `path` off the query string and validate. Returns
+        `(path, None)` on success or `(None, error_response)` on failure."""
+        doc_path = request.query_params.get("path", "")
+        if not doc_path:
+            return None, _err400("path query parameter required")
         err = _validate_path(doc_path)
         if err:
-            return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
+            return None, _err400(err)
+        return doc_path, None
+
+    def get(self, request, slug):
+        doc_path, err_resp = self._read_path(request)
+        if err_resp is not None:
+            return err_resp
 
         try:
             doc = AgentDoc.objects.get(workspace__slug=slug, path=doc_path)
         except AgentDoc.DoesNotExist:
             return Response(
-                {"error": "not found"}, status=status.HTTP_404_NOT_FOUND
+                {"detail": "not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
         resp = Response(
@@ -162,25 +207,23 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
                 "content": doc.content,
                 "version": doc.version,
                 "updated_at": doc.updated_at,
-                "updated_by_id": doc.updated_by_id,
-                "created_by_id": doc.created_by_id,
+                "created_at": doc.created_at,
+                "updated_by": str(doc.updated_by_id) if doc.updated_by_id else None,
+                "created_by": str(doc.created_by_id) if doc.created_by_id else None,
             },
             status=status.HTTP_200_OK,
         )
         resp["ETag"] = _etag(doc.version)
         return resp
 
-    def put(self, request, slug, doc_path):
-        err = _validate_path(doc_path)
-        if err:
-            return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
+    def put(self, request, slug):
+        doc_path, err_resp = self._read_path(request)
+        if err_resp is not None:
+            return err_resp
 
         content = request.data.get("content", "")
         if not isinstance(content, str):
-            return Response(
-                {"error": "content must be a string"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+            return _err400("content must be a string")
 
         if_match = _parse_if_match(request.headers.get("If-Match"))
 
@@ -190,7 +233,7 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
             workspace = Workspace.objects.get(slug=slug)
         except Workspace.DoesNotExist:
             return Response(
-                {"error": "workspace not found"},
+                {"detail": "workspace not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
@@ -209,8 +252,8 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
                 if if_match is not None and if_match != -1:
                     return Response(
                         {
-                            "error": "If-Match present but doc does not exist",
-                            "current_version": None,
+                            "detail": "If-Match present but doc does not exist",
+                            "server_version": None,
                         },
                         status=status.HTTP_412_PRECONDITION_FAILED,
                     )
@@ -221,11 +264,7 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
                     version=1,
                 )
                 resp = Response(
-                    {
-                        "path": doc.path,
-                        "version": doc.version,
-                        "created": True,
-                    },
+                    self._serialize_full(doc),
                     status=status.HTTP_201_CREATED,
                 )
                 resp["ETag"] = _etag(doc.version)
@@ -237,16 +276,16 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
             if if_match is None:
                 return Response(
                     {
-                        "error": "If-Match required for update",
-                        "current_version": existing.version,
+                        "detail": "If-Match required for update",
+                        "server_version": existing.version,
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
             if if_match != -1 and if_match != existing.version:
                 resp = Response(
                     {
-                        "error": "stale version",
-                        "current_version": existing.version,
+                        "detail": "stale version",
+                        "server_version": existing.version,
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
@@ -258,20 +297,16 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
             existing.save(update_fields=["content", "version", "updated_at", "updated_by"])
 
         resp = Response(
-            {
-                "path": existing.path,
-                "version": existing.version,
-                "created": False,
-            },
+            self._serialize_full(existing),
             status=status.HTTP_200_OK,
         )
         resp["ETag"] = _etag(existing.version)
         return resp
 
-    def delete(self, request, slug, doc_path):
-        err = _validate_path(doc_path)
-        if err:
-            return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
+    def delete(self, request, slug):
+        doc_path, err_resp = self._read_path(request)
+        if err_resp is not None:
+            return err_resp
 
         if_match = _parse_if_match(request.headers.get("If-Match"))
 
@@ -288,16 +323,16 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
             if if_match is None:
                 return Response(
                     {
-                        "error": "If-Match required for delete",
-                        "current_version": existing.version,
+                        "detail": "If-Match required for delete",
+                        "server_version": existing.version,
                     },
                     status=status.HTTP_412_PRECONDITION_FAILED,
                 )
             if if_match != -1 and if_match != existing.version:
                 resp = Response(
                     {
-                        "error": "stale version",
-                        "current_version": existing.version,
+                        "detail": "stale version",
+                        "server_version": existing.version,
                     },
                     status=status.HTTP_409_CONFLICT,
                 )
@@ -308,52 +343,16 @@ class AgentDocDetailAPIEndpoint(BaseAPIView):
 
         return Response(status=status.HTTP_204_NO_CONTENT)
 
-
-class AgentDocPreviewAPIEndpoint(BaseAPIView):
-    """POST /api/v1/workspaces/<slug>/agent-docs/<path>/preview
-
-    Render the doc's current content as HTML. Server-side render keeps the
-    frontend dumb (textarea + an iframe/innerHTML pane is fine) and lets us
-    swap the renderer without a frontend change.
-
-    Uses `mistune` (already in requirements/base.txt for other markdown work).
-    """
-
-    def post(self, request, slug, doc_path):
-        err = _validate_path(doc_path)
-        if err:
-            return Response({"error": err}, status=status.HTTP_400_BAD_REQUEST)
-
-        # Allow either a body override (preview unsaved content) or read the
-        # stored content. The frontend's "preview while typing" path uses the
-        # body override; saved-doc preview uses no body.
-        override = request.data.get("content")
-        if override is not None and not isinstance(override, str):
-            return Response(
-                {"error": "content must be a string"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        if override is None:
-            try:
-                doc = AgentDoc.objects.get(workspace__slug=slug, path=doc_path)
-            except AgentDoc.DoesNotExist:
-                return Response(
-                    {"error": "not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-            source = doc.content
-        else:
-            source = override
-
-        # Lazy-import so the model layer doesn't pull in the renderer.
-        import mistune
-
-        # `escape=True` keeps embedded HTML literal — agents write markdown,
-        # not raw HTML, and we don't want a stray `<script>` to execute in
-        # the preview pane. mistune 3.x `mistune.html()` does NOT escape by
-        # default; `create_markdown(escape=True)` does.
-        renderer = mistune.create_markdown(escape=True)
-        html = renderer(source)
-
-        return Response({"html": html}, status=status.HTTP_200_OK)
+    @staticmethod
+    def _serialize_full(doc: AgentDoc) -> dict:
+        """Match the shape returned by GET so write responses can be used
+        directly to refresh client-side caches (matches Surya's mock)."""
+        return {
+            "path": doc.path,
+            "content": doc.content,
+            "version": doc.version,
+            "updated_at": doc.updated_at,
+            "created_at": doc.created_at,
+            "updated_by": str(doc.updated_by_id) if doc.updated_by_id else None,
+            "created_by": str(doc.created_by_id) if doc.created_by_id else None,
+        }
