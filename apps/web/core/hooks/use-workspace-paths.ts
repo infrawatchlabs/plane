@@ -16,13 +16,17 @@ export const useWorkspacePaths = () => {
 
   const isSettingsPath = pathname.includes(`/${workspaceSlug}/settings`);
   const isWikiPath = pathname.includes(`/${workspaceSlug}/wiki`);
+  // PP-71: Agent Docs lives at /<slug>/agent-docs (parallel to /wiki).
+  const isAgentDocsPath = pathname.includes(`/${workspaceSlug}/agent-docs`);
   const isAiPath = pathname.includes(`/${workspaceSlug}/pi-chat`);
-  const isProjectsPath = pathname.includes(`/${workspaceSlug}/`) && !isWikiPath && !isAiPath && !isSettingsPath;
+  const isProjectsPath =
+    pathname.includes(`/${workspaceSlug}/`) && !isWikiPath && !isAgentDocsPath && !isAiPath && !isSettingsPath;
   const isNotificationsPath = pathname.includes(`/${workspaceSlug}/notifications`);
 
   return {
     isSettingsPath,
     isWikiPath,
+    isAgentDocsPath,
     isAiPath,
     isProjectsPath,
     isNotificationsPath,

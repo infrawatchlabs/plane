@@ -271,6 +271,14 @@ export const coreRoutes: RouteConfigEntry[] = [
       ]),
 
       // ====================================================================
+      // PP-71: AGENT DOCS — WORKSPACE LEVEL MARKDOWN NOTES
+      // (replaces the local Obsidian vault; tree of pure-markdown files)
+      // ====================================================================
+      layout("./(all)/[workspaceSlug]/(agent-docs)/layout.tsx", [
+        route(":workspaceSlug/agent-docs", "./(all)/[workspaceSlug]/(agent-docs)/agent-docs/page.tsx"),
+      ]),
+
+      // ====================================================================
       // SETTINGS SECTION
       // ====================================================================
       layout("./(all)/[workspaceSlug]/(settings)/layout.tsx", [
