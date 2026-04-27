@@ -145,9 +145,10 @@ export const ProjectsAppPowerKModalWrapper = observer(function ProjectsAppPowerK
             >
               <Dialog.Panel className="divide-opacity-10 relative flex w-full max-w-2xl transform flex-col items-center justify-center divide-y divide-subtle-1 rounded-lg bg-surface-1 shadow-raised-200 transition-all">
                 <Command
-                  filter={(i18nValue: string, search: string) => {
+                  filter={(i18nValue: string, search: string, keywords?: string[]) => {
                     if (i18nValue === "no-results") return 1;
-                    if (i18nValue.toLowerCase().includes(search.toLowerCase())) return 1;
+                    const haystack = [i18nValue, ...(keywords ?? [])].join(" ").toLowerCase();
+                    if (haystack.includes(search.toLowerCase())) return 1;
                     return 0;
                   }}
                   shouldFilter={searchTerm.length > 0}

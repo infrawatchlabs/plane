@@ -2687,6 +2687,10 @@ export default {
     },
     miscellaneous_actions: {
       toggle_app_sidebar: "Toggle app sidebar",
+      side_rail_icon_only: "Side Rail: Icon only",
+      side_rail_icon_with_label: "Side Rail: Icon with text",
+      side_rail_show: "Side Rail: Show",
+      side_rail_hide: "Side Rail: Hide",
       copy_current_page_url: "Copy current page URL",
       copy_current_page_url_toast_success: "Current page URL copied to clipboard.",
       copy_current_page_url_toast_error: "Some error occurred while copying the current page URL to clipboard.",
