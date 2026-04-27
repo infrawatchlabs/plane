@@ -1,17 +1,22 @@
 /**
- * PP-71: Agent Docs — sidebar content (header + tree).
+ * IW: AI panel — VAULTS section sidebar (tree + new-doc button).
  *
- * Fetches the flat path list, renders the tree, owns the "New doc" button.
+ * Lifted from the PP-71 AgentDocsSidebarContent unchanged in behavior —
+ * fetches the flat path list, renders the tree, owns the "New doc" button.
+ * Only the wrapper styling and section header location moved: this
+ * component now renders *under* the uppercase "VAULTS" header drawn by
+ * the AI panel layout, so we drop the inline title bar that the original
+ * had.
  */
 
 import { useEffect, useState } from "react";
 import { Loader2, Plus } from "lucide-react";
 import { agentDocsClient, AgentDocStaleError } from "@/services/agent-docs";
 import { AgentDocsTree } from "@/components/agent-docs/iw-agent-docs-tree";
-import { useAgentDocsContext } from "./agent-docs-context";
+import { useVaultsContext } from "./vaults-context";
 
-export function AgentDocsSidebarContent() {
-  const { workspaceSlug, selectedPath, setSelectedPath, listVersion, bumpListVersion } = useAgentDocsContext();
+export function VaultsSidebarContent() {
+  const { workspaceSlug, selectedPath, setSelectedPath, listVersion, bumpListVersion } = useVaultsContext();
   const [paths, setPaths] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
   const [creating, setCreating] = useState(false);
@@ -76,15 +81,17 @@ export function AgentDocsSidebarContent() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="flex items-center justify-between border-b border-subtle px-3 py-2">
-        <span className="text-13 font-semibold text-primary">Agent Docs</span>
+    <div className="flex w-full flex-col">
+      {/* Section action row — sits under the uppercase VAULTS header in
+          the parent layout. Just the "New" button for now; future
+          per-section actions land here. */}
+      <div className="flex items-center justify-end px-3 pb-1">
         <button
           type="button"
           onClick={handleCreate}
           disabled={creating}
           className="flex items-center gap-1 rounded-md border border-subtle px-2 py-1 text-12 text-secondary hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-50"
-          title="Create a new agent doc"
+          title="Create a new vault doc"
         >
           {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
           <span>New</span>
@@ -92,12 +99,12 @@ export function AgentDocsSidebarContent() {
       </div>
       <div className="flex-1 overflow-auto">
         {loading ? (
-          <div className="flex items-center gap-2 p-3 text-13 text-tertiary">
+          <div className="flex items-center gap-2 px-3 py-2 text-13 text-tertiary">
             <Loader2 className="size-3.5 animate-spin" />
             Loading…
           </div>
         ) : error ? (
-          <div className="text-red-500 p-3 text-13">{error}</div>
+          <div className="text-red-500 px-3 py-2 text-13">{error}</div>
         ) : (
           <AgentDocsTree paths={paths} selectedPath={selectedPath} onSelect={setSelectedPath} onDelete={handleDelete} />
         )}
