@@ -147,9 +147,12 @@ export function AgentDocsEditor({ workspaceSlug, path, onAfterSave }: Props) {
 
   return (
     <div className="flex size-full flex-col" data-testid="iw-agent-docs-editor">
-      {/* toolbar */}
-      <div className="flex items-center justify-between gap-2 border-b border-subtle px-4 py-2">
-        <div className="flex items-center gap-1 rounded-md bg-layer-2 p-0.5">
+      {/* toolbar — tab strip on the left, doc status + save on the right.
+          Tabs use the same underline-on-active pattern as the issue
+          detail epic-overview tabs (after-pseudo bottom border so the
+          active tab visually anchors to the toolbar's bottom edge). */}
+      <div className="flex items-center justify-between gap-2 border-b border-subtle px-4">
+        <div className="flex items-center gap-0">
           <TabButton active={tab === "edit"} onClick={() => setTab("edit")}>
             Edit
           </TabButton>
@@ -157,7 +160,7 @@ export function AgentDocsEditor({ workspaceSlug, path, onAfterSave }: Props) {
             Preview
           </TabButton>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 py-2">
           <span className="text-11 text-tertiary">
             v{state.doc.version} · {isDirty ? "unsaved" : savedFlash ? "saved ✓" : "synced"}
           </span>
@@ -230,8 +233,14 @@ function TabButton({ active, onClick, children }: { active: boolean; onClick: ()
       type="button"
       onClick={onClick}
       className={cn(
-        "rounded-sm px-3 py-1 text-12 font-medium transition-colors",
-        active ? "shadow-sm bg-surface-1 text-primary" : "text-secondary hover:text-primary"
+        // Mirror Plane's issue-detail tab pattern: muted text, hover
+        // lightens, active gets a 2px brand-color underline via an
+        // ::after that hugs the toolbar's bottom border so the strip
+        // reads as a real tab strip — not a row of buttons.
+        "relative px-3 py-2 text-13 font-medium transition-colors",
+        active
+          ? "after:bg-primary text-primary after:absolute after:right-0 after:bottom-0 after:left-0 after:h-0.5"
+          : "text-tertiary hover:text-secondary"
       )}
     >
       {children}

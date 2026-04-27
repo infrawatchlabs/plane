@@ -45,8 +45,11 @@ export function AISidebarContent() {
             {/* Uppercase section header — matches Wiki's "Workspace"
                 group header weight/colour but stays uppercase + tracks
                 wider so VAULTS / AGENTS / CHATS read as section
-                dividers, not items. */}
-            <div className="px-5 pb-1.5">
+                dividers, not items. The section icon sits muted to the
+                left so the eye can grab the row at a glance without
+                competing with the type. */}
+            <div className="flex items-center gap-1.5 px-5 pb-1.5">
+              <section.icon className="size-3 flex-shrink-0 text-placeholder" />
               <span className="tracking-wider text-11 font-semibold text-placeholder uppercase">{section.label}</span>
             </div>
             <section.SidebarContent />
