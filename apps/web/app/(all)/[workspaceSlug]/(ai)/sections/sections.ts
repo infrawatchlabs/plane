@@ -24,6 +24,7 @@ import type { ComponentType, ReactNode } from "react";
 import { FolderOpen, type LucideIcon } from "lucide-react";
 import { VaultsProvider } from "./vaults/vaults-provider";
 import { VaultsSidebarContent } from "./vaults/vaults-sidebar-content";
+import { VaultsNewButton } from "./vaults/vaults-new-button";
 import { useVaultsItemLabel } from "./vaults/use-vaults-item-label";
 
 export type TAISectionId = "vaults";
@@ -54,6 +55,15 @@ export type TAISectionDescriptor = {
    */
   SidebarContent: ComponentType;
   /**
+   * Optional component rendered on the *right* side of the section
+   * header row (justify-between with the uppercase label). Use this
+   * for compact per-section actions like "+ New" that should be
+   * one row away from the section title rather than below it.
+   * Rendered inside the section's Provider so it can use the section's
+   * context.
+   */
+  HeaderAction?: ComponentType;
+  /**
    * Optional provider that wraps the whole AI layout so both the
    * section's sidebar block and its main pane share state. Layout
    * stacks these in registration order.
@@ -80,6 +90,7 @@ export const AI_SECTIONS: TAISectionDescriptor[] = [
     // Sparkles AI rail icon.
     icon: FolderOpen,
     SidebarContent: VaultsSidebarContent,
+    HeaderAction: VaultsNewButton,
     Provider: VaultsProvider,
     useItemLabel: useVaultsItemLabel,
   },

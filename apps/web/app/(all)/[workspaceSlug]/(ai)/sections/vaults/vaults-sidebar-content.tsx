@@ -1,16 +1,21 @@
 /**
- * IW: AI panel — VAULTS section sidebar (tree + new-doc button).
+ * IW: AI panel — VAULTS section sidebar (tree).
  *
- * Lifted from the PP-71 AgentDocsSidebarContent unchanged in behavior —
- * fetches the flat path list, renders the tree, owns the "New doc" button.
- * Only the wrapper styling and section header location moved: this
- * component now renders *under* the uppercase "VAULTS" header drawn by
- * the AI panel layout, so we drop the inline title bar that the original
- * had.
+ * Lifted from the PP-71 AgentDocsSidebarContent. Round 2 polish moved
+ * the "+ New" button up into the section header row (rendered by the
+ * AI sidebar shell via section.HeaderAction). What's left here is just
+ * the path-list fetch + tree render + per-folder create plumbing.
+ *
+ * Per-folder create: the tree exposes "+ Add file / Add folder"
+ * affordances on each folder row (round 2 polish, item 7). When the
+ * user picks "Add file" we POST to the API; when they pick "Add
+ * folder" the tree handles it client-side (no folder entity in the
+ * data model — folders are synthesized from path prefixes, so a ghost
+ * folder lives in tree state until the user creates a file inside it).
  */
 
 import { useEffect, useState } from "react";
-import { Loader2, Plus } from "lucide-react";
+import { Loader2 } from "lucide-react";
 import { agentDocsClient, AgentDocStaleError } from "@/services/agent-docs";
 import { AgentDocsTree } from "@/components/agent-docs/iw-agent-docs-tree";
 import { useVaultsContext } from "./vaults-context";
@@ -19,7 +24,6 @@ export function VaultsSidebarContent() {
   const { workspaceSlug, selectedPath, setSelectedPath, listVersion, bumpListVersion } = useVaultsContext();
   const [paths, setPaths] = useState<string[]>([]);
   const [loading, setLoading] = useState(true);
-  const [creating, setCreating] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
@@ -45,28 +49,21 @@ export function VaultsSidebarContent() {
     };
   }, [workspaceSlug, listVersion]);
 
-  const handleCreate = async () => {
-    if (creating) return;
-    const input = window.prompt(
-      "Path for the new doc (must end with .md, e.g. plans/surya.md):",
-      "scratch/untitled.md"
-    );
-    if (!input) return;
-    const trimmed = input.trim();
-    if (!trimmed) return;
-    setCreating(true);
+  // Tree's per-folder "Add file" affordance funnels here. The tree
+  // computed the full path (parent + filename); we just persist + select.
+  // Returns a string error message on failure so the tree can surface
+  // it inline (e.g. the input row stays open with a red hint).
+  const handleCreateFile = async (fullPath: string): Promise<string | null> => {
     try {
-      await agentDocsClient.write(workspaceSlug, trimmed, `# ${trimmed}\n\n`);
+      await agentDocsClient.write(workspaceSlug, fullPath, `# ${fullPath}\n\n`);
       bumpListVersion();
-      setSelectedPath(trimmed);
+      setSelectedPath(fullPath);
+      return null;
     } catch (err) {
       if (err instanceof AgentDocStaleError) {
-        window.alert(`A doc already exists at ${trimmed}. Pick a different path.`);
-      } else {
-        window.alert((err as { detail?: string })?.detail ?? "Create failed.");
+        return `A doc already exists at ${fullPath}.`;
       }
-    } finally {
-      setCreating(false);
+      return (err as { detail?: string; message?: string })?.detail ?? (err as Error)?.message ?? "Create failed.";
     }
   };
 
@@ -82,21 +79,6 @@ export function VaultsSidebarContent() {
 
   return (
     <div className="flex w-full flex-col">
-      {/* Section action row — sits under the uppercase VAULTS header in
-          the parent layout. Just the "New" button for now; future
-          per-section actions land here. */}
-      <div className="flex items-center justify-end px-3 pb-1">
-        <button
-          type="button"
-          onClick={handleCreate}
-          disabled={creating}
-          className="flex items-center gap-1 rounded-md border border-subtle px-2 py-1 text-12 text-secondary hover:bg-layer-transparent-hover disabled:cursor-not-allowed disabled:opacity-50"
-          title="Create a new vault doc"
-        >
-          {creating ? <Loader2 className="size-3 animate-spin" /> : <Plus className="size-3" />}
-          <span>New</span>
-        </button>
-      </div>
       <div className="flex-1 overflow-auto">
         {loading ? (
           <div className="flex items-center gap-2 px-3 py-2 text-13 text-tertiary">
@@ -106,7 +88,13 @@ export function VaultsSidebarContent() {
         ) : error ? (
           <div className="text-red-500 px-3 py-2 text-13">{error}</div>
         ) : (
-          <AgentDocsTree paths={paths} selectedPath={selectedPath} onSelect={setSelectedPath} onDelete={handleDelete} />
+          <AgentDocsTree
+            paths={paths}
+            selectedPath={selectedPath}
+            onSelect={setSelectedPath}
+            onDelete={handleDelete}
+            onCreateFile={handleCreateFile}
+          />
         )}
       </div>
     </div>

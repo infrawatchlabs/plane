@@ -1,14 +1,19 @@
 /**
  * IW: AI panel — VAULTS breadcrumb item-label hook.
  *
- * Returns the filename of the currently-selected vault doc (e.g.
- * `plane-ai-module-vision.md` for `specs/plane-ai-module-vision.md`),
- * or `null` when no doc is selected. The AI layout's main-pane header
- * calls this through the section descriptor to render the trailing
- * segment of the breadcrumb.
+ * Returns the *full workspace-relative path* of the currently-selected
+ * vault doc (e.g. `blogs/drafts/ai-org-v2-post.md`), or `null` when no
+ * doc is selected. The AI layout's main-pane breadcrumb splits this on
+ * "/" and renders every segment so users can see the entire location
+ * inline — there's no longer a separate path indicator at the bottom
+ * of the editor (one source of truth, see PP polish round 2).
  *
- * Lives next to the provider so future sections (AGENTS, CHATS) can
- * own their own equivalent without reaching into VAULTS internals.
+ * Sections without nested paths (future AGENTS, CHATS) can still return
+ * a single label and the breadcrumb will render it as one segment —
+ * splitting "agent-name" on "/" is a no-op.
+ *
+ * Lives next to the provider so future sections can own their own
+ * equivalent without reaching into VAULTS internals.
  */
 
 import { useVaultsContext } from "./vaults-context";
@@ -16,9 +21,9 @@ import { useVaultsContext } from "./vaults-context";
 export function useVaultsItemLabel(): string | null {
   const { selectedPath } = useVaultsContext();
   if (!selectedPath) return null;
-  // Path is workspace-relative and may contain slashes ("specs/foo.md").
-  // The breadcrumb shows just the leaf — the section label already
-  // tells the user they're inside VAULTS.
-  const leaf = selectedPath.split("/").pop();
-  return leaf && leaf.length > 0 ? leaf : selectedPath;
+  // Normalise: drop a leading slash if some caller ever passes one in,
+  // and collapse adjacent slashes so the segment split below stays
+  // tight. The API only ever returns relative paths, so this is
+  // belt-and-braces for whatever stores it (URL deep links, etc).
+  return selectedPath.replace(/^\/+/, "").replace(/\/{2,}/g, "/");
 }
