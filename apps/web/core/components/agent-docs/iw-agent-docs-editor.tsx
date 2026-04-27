@@ -203,7 +203,7 @@ export function AgentDocsEditor({ workspaceSlug, path, onAfterSave }: Props) {
           />
         ) : (
           <div
-            className="prose-sm dark:prose-invert max-w-none overflow-auto p-4 prose"
+            className="prose-sm dark:prose-invert absolute inset-0 max-w-none overflow-y-auto p-4 prose"
             data-testid="iw-agent-docs-preview"
             // renderMarkdown returns sanitized HTML — escapes raw text first,
             // then applies a small set of inline transforms. NEVER pass raw
