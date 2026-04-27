@@ -12,6 +12,8 @@ from .views import (
     EpicAnalyticsAPIEndpoint,
     WorkspacePageFolderListCreateAPIEndpoint,
     WorkspacePageFolderDetailAPIEndpoint,
+    AgentDocListAPIEndpoint,
+    AgentDocDetailAPIEndpoint,
 )
 from .views.workspace_page import (
     WorkspacePageListCreateAPIEndpoint,
@@ -79,5 +81,21 @@ urlpatterns = [
         "workspaces/<str:slug>/projects/<uuid:project_id>/iw-epics/<uuid:pk>/analytics/",
         EpicAnalyticsAPIEndpoint.as_view(http_method_names=["get"]),
         name="iw-epic-analytics",
+    ),
+    # Agent Docs (PP-70) — workspace-level markdown notes with optimistic
+    # concurrency. Path is passed as a `?path=` query string (NOT a URL
+    # segment) so the route works for arbitrary nested doc paths like
+    # `plans/vikrant.md` without double URL-encoding pain. This matches
+    # Surya's PP-71 frontend client. Frontend renders preview client-side,
+    # so there is intentionally no `/preview` endpoint here.
+    path(
+        "workspaces/<str:slug>/agent-docs/",
+        AgentDocListAPIEndpoint.as_view(http_method_names=["get"]),
+        name="iw-agent-docs",
+    ),
+    path(
+        "workspaces/<str:slug>/agent-docs/doc/",
+        AgentDocDetailAPIEndpoint.as_view(http_method_names=["get", "put", "delete"]),
+        name="iw-agent-doc-detail",
     ),
 ]

@@ -92,3 +92,5 @@ from .sticky import Sticky
 from .description import Description, DescriptionVersion
 
 from .iw_page_folder import PageFolder
+
+from .iw_agent_doc import AgentDoc

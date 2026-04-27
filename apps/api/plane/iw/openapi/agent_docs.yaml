@@ -1,0 +1,322 @@
+# InfraWatch — Agent Docs API (OpenAPI 3.1)
+#
+# Workspace-level markdown notes with optimistic-concurrency single-writer
+# semantics. Replaces the local Obsidian vault for agent state (plans, memory,
+# learnings, specs, blog drafts, inbox, curations).
+#
+# Authoritative source for the API surface — Surya (frontend, PP-71) and Arun
+# (migration script, PP-72) consume this. If the implementation drifts from
+# this doc, fix the doc as part of the same commit.
+#
+# URL shape: doc paths are passed via `?path=` query string, NOT as URL
+# segments. This avoids double URL-encoding paths-with-slashes and matches
+# the rest of Plane's routing convention (UUIDs in path, never arbitrary
+# strings). Listings, retrieves, writes, and deletes all hit
+# `/agent-docs/doc/?path=<full/path.md>` (the listing has its own root at
+# `/agent-docs/`).
+#
+# Markdown preview: rendered client-side. There is intentionally no
+# `/preview` endpoint — keeps the backend stateless and lets the UI swap
+# its renderer (react-markdown, marked, mistune, anything) without a
+# server round-trip.
+#
+# Auth: same `X-Api-Key` header as every other plane/iw/ endpoint.
+
+openapi: "3.1.0"
+info:
+  title: InfraWatch Agent Docs
+  version: "1.0.0"
+  description: |
+    Workspace-level pure-markdown store with ETag/If-Match optimistic
+    concurrency. Folder layout is encoded in the path itself — there is no
+    separate folder table. v1 only accepts `.md` files.
+
+    Concurrency rules:
+      - Every write increments the doc's `version` counter.
+      - Servers return `ETag: "<version>"` on every read.
+      - PUT requires `If-Match: "<version>"` to update an existing doc.
+      - DELETE requires `If-Match` for symmetry.
+      - `If-Match: "*"` overrides the version check ("force write"). Used
+        by the migration script and the agent vault helper.
+      - Stale `If-Match` → 409 with `{detail, server_version}`.
+      - Missing `If-Match` on update → 412.
+
+    Error body shape:
+      All non-2xx responses use `{"detail": "<msg>"}`. 409 conflicts also
+      include `"server_version": <int>` so the UI can show "your version
+      was N+1" without a follow-up GET.
+
+servers:
+  - url: /api/v1
+
+security:
+  - apiKey: []
+
+paths:
+  /workspaces/{slug}/agent-docs/:
+    get:
+      summary: List doc summaries (no body) under an optional path prefix.
+      parameters:
+        - $ref: "#/components/parameters/Slug"
+        - in: query
+          name: prefix
+          schema:
+            type: string
+            maxLength: 256
+          description: |
+            Path prefix to filter by (e.g. `plans/` or `memory/vikrant/`).
+            Empty/omitted returns all docs in the workspace.
+        - in: query
+          name: q
+          schema:
+            type: string
+            maxLength: 256
+          description: |
+            v1 full-text filter — case-insensitive substring match against
+            the doc body (Postgres `ILIKE`). Cheap and good enough until
+            we add tsvector + GIN. Combine with `prefix` for scoped search
+            (`?prefix=memory/&q=hocuspocus`). Empty/omitted = no filter.
+      responses:
+        "200":
+          description: List of doc summaries ordered by path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDocListResponse"
+        "400":
+          description: Invalid prefix or q.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /workspaces/{slug}/agent-docs/doc/:
+    parameters:
+      - $ref: "#/components/parameters/Slug"
+      - $ref: "#/components/parameters/PathQuery"
+    get:
+      summary: Fetch a single doc by `?path=`.
+      responses:
+        "200":
+          description: Doc body and metadata.
+          headers:
+            ETag:
+              schema:
+                type: string
+              description: Quoted version string, e.g. `"7"`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDoc"
+        "400":
+          description: Missing or invalid path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "404":
+          description: Doc does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    put:
+      summary: Create or update a doc.
+      parameters:
+        - in: header
+          name: If-Match
+          schema:
+            type: string
+          description: |
+            Required to update an existing doc. Carries the version the
+            client believes is current (quoted, per RFC 7232). Use `"*"`
+            to force-write regardless of version. Omit when creating a new
+            doc.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                content:
+                  type: string
+              required: [content]
+      responses:
+        "200":
+          description: Updated. ETag header carries the new version.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDoc"
+        "201":
+          description: Created. ETag header carries the new version.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AgentDoc"
+        "400":
+          description: Missing/invalid path or body.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: |
+            `If-Match` value is stale. Body carries `server_version` so
+            the client can refetch + retry without an extra round-trip.
+          headers:
+            ETag:
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictError"
+        "412":
+          description: |
+            `If-Match` missing on a PUT to an existing doc, or `If-Match`
+            present but doc does not exist.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictError"
+    delete:
+      summary: Delete a doc.
+      parameters:
+        - in: header
+          name: If-Match
+          required: true
+          schema:
+            type: string
+      responses:
+        "204":
+          description: Deleted (idempotent — also returned if the doc never existed).
+        "400":
+          description: Missing/invalid path.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "409":
+          description: Stale If-Match.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictError"
+        "412":
+          description: If-Match missing.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConflictError"
+
+components:
+  securitySchemes:
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-Api-Key
+
+  parameters:
+    Slug:
+      in: path
+      name: slug
+      required: true
+      schema:
+        type: string
+      description: Workspace slug.
+    PathQuery:
+      in: query
+      name: path
+      required: true
+      schema:
+        type: string
+        pattern: "^[a-zA-Z0-9._\\-/]+\\.md$"
+        maxLength: 256
+      description: |
+        Markdown file path within the workspace, e.g.
+        `plans/vikrant.md` or `memory/vikrant/2026-04-26.md`. Must end in
+        `.md`. No leading `/`, no `..`, no double slashes. Passed as a
+        query parameter (URL-encoded) so embedded slashes work without
+        double-encoding.
+
+  schemas:
+    AgentDocSummary:
+      type: object
+      properties:
+        path:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        updated_at:
+          type: string
+          format: date-time
+      required: [path, version, updated_at]
+    AgentDocListResponse:
+      type: object
+      description: |
+        Wrapped as an object (not a bare array) so we can add cursor /
+        pagination fields later without a breaking change. v1 has no
+        pagination — the agent doc count is small and the client's tree
+        builder needs the full list.
+      properties:
+        docs:
+          type: array
+          items:
+            $ref: "#/components/schemas/AgentDocSummary"
+      required: [docs]
+    AgentDoc:
+      type: object
+      properties:
+        path:
+          type: string
+        content:
+          type: string
+        version:
+          type: integer
+          minimum: 1
+        updated_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+          format: uuid
+          nullable: true
+        created_by:
+          type: string
+          format: uuid
+          nullable: true
+      required: [path, content, version, updated_at, created_at]
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+      required: [detail]
+    ConflictError:
+      type: object
+      properties:
+        detail:
+          type: string
+        server_version:
+          type: integer
+          minimum: 1
+          nullable: true
+          description: |
+            The current authoritative version on the server. `null` only
+            when the conflict is "If-Match present but doc does not exist"
+            (412). On 409 it is always an integer.
+      required: [detail]
