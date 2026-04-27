@@ -8,7 +8,7 @@
 import React from "react";
 import { observer } from "mobx-react";
 import { useParams } from "next/navigation";
-import { NotebookText } from "lucide-react";
+import { Sparkles } from "lucide-react";
 import { WikiIcon } from "@plane/propel/icons";
 import type { AppSidebarItemData } from "@/components/sidebar/sidebar-item";
 import { useWorkspacePaths } from "@/hooks/use-workspace-paths";
@@ -20,7 +20,7 @@ type WithDockItemsProps = {
 export function withDockItems<P extends WithDockItemsProps>(WrappedComponent: React.ComponentType<P>) {
   const ComponentWithDockItems = observer(function ComponentWithDockItems(props: Omit<P, keyof WithDockItemsProps>) {
     const { workspaceSlug } = useParams();
-    const { isProjectsPath, isWikiPath, isAgentDocsPath, isNotificationsPath } = useWorkspacePaths();
+    const { isProjectsPath, isWikiPath, isAIPath, isNotificationsPath } = useWorkspacePaths();
 
     const dockItems: (AppSidebarItemData & { shouldRender: boolean })[] = [
       {
@@ -38,11 +38,13 @@ export function withDockItems<P extends WithDockItemsProps>(WrappedComponent: Re
         shouldRender: true,
       },
       {
-        // PP-71: Agent Docs — workspace-level markdown notes (replaces local Obsidian vault).
-        label: "Agent Docs",
-        icon: <NotebookText className="size-5" />,
-        href: `/${workspaceSlug}/agent-docs/`,
-        isActive: isAgentDocsPath,
+        // IW: AI workspace — VAULTS today (was "Agent Docs" pre-PP-71-rename),
+        // AGENTS / CHATS land under here as siblings later. Single-word label
+        // keeps the rail aligned (the prior "Agent Docs" wrapped to two lines).
+        label: "AI",
+        icon: <Sparkles className="size-5" />,
+        href: `/${workspaceSlug}/ai/`,
+        isActive: isAIPath,
         shouldRender: true,
       },
     ];

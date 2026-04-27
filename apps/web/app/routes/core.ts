@@ -271,11 +271,15 @@ export const coreRoutes: RouteConfigEntry[] = [
       ]),
 
       // ====================================================================
-      // PP-71: AGENT DOCS — WORKSPACE LEVEL MARKDOWN NOTES
-      // (replaces the local Obsidian vault; tree of pure-markdown files)
+      // IW: AI PANEL — WORKSPACE LEVEL AI WORKSPACE
+      // Section-grouped sidebar (VAULTS today; AGENTS / CHATS later).
+      // VAULTS is the renamed PP-71 Agent Docs surface — same backend,
+      // same editor, just regrouped under /ai. Old /agent-docs route
+      // 301s to /ai/vaults via the redirect at the bottom of the file.
       // ====================================================================
-      layout("./(all)/[workspaceSlug]/(agent-docs)/layout.tsx", [
-        route(":workspaceSlug/agent-docs", "./(all)/[workspaceSlug]/(agent-docs)/agent-docs/page.tsx"),
+      layout("./(all)/[workspaceSlug]/(ai)/layout.tsx", [
+        route(":workspaceSlug/ai", "./(all)/[workspaceSlug]/(ai)/page.tsx"),
+        route(":workspaceSlug/ai/vaults", "./(all)/[workspaceSlug]/(ai)/sections/vaults/page.tsx"),
       ]),
 
       // ====================================================================
@@ -415,6 +419,11 @@ export const coreRoutes: RouteConfigEntry[] = [
   // Inbox redirect: /:workspaceSlug/projects/:projectId/inbox
   // → /:workspaceSlug/projects/:projectId/intake
   route(":workspaceSlug/projects/:projectId/inbox", "routes/redirects/core/inbox.tsx"),
+
+  // IW: Agent Docs → AI restructure. Old /:workspaceSlug/agent-docs URLs
+  // (and /:workspaceSlug/agent-docs/?path=…) redirect to /ai/vaults so
+  // PP-71 bookmarks keep working. Drop after a release or two.
+  route(":workspaceSlug/agent-docs", "routes/redirects/core/agent-docs.tsx"),
 
   // Sign-up redirects
   route("accounts/sign-up", "routes/redirects/core/accounts-signup.tsx"),
