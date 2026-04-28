@@ -1,16 +1,16 @@
 #!/bin/bash
 set -e
 
-# InfraWatch Plane — Self-Hosted Installer
+# Plane Plus — Self-Hosted Installer
 # Usage: curl -sSL <release-url>/install.sh | bash
-#   or:  ./install.sh [install|start|stop|restart|upgrade|logs|backup]
+#   or:  ./setup.sh [install|start|stop|restart|upgrade|logs|backup]
 
 SCRIPT_DIR=$PWD
 INSTALL_DIR=$PWD/plane-app
 DOCKER_FILE_PATH=$INSTALL_DIR/docker-compose.yml
 DOCKER_ENV_PATH=$INSTALL_DIR/plane.env
 
-GH_REPO=infrawatchlabs/plane
+GH_REPO=eyriehq/plane-plus
 RELEASE_DOWNLOAD_URL="https://github.com/$GH_REPO/releases/download"
 FALLBACK_DOWNLOAD_URL="https://raw.githubusercontent.com/$GH_REPO/main/deployments/infrawatch"
 
@@ -31,9 +31,9 @@ fi
 function print_header() {
     clear
     echo ""
-    echo "  ╦┌┐┌┌─┐┬─┐┌─┐╦ ╦┌─┐┌┬┐┌─┐┬ ┬  ╔═╗┬  ┌─┐┌┐┌┌─┐"
-    echo "  ║│││├┤ ├┬┘├─┤║║║├─┤ │ │  ├─┤  ╠═╝│  ├─┤│││├┤ "
-    echo "  ╩┘└┘└  ┴└─┴ ┴╚╩╝┴ ┴ ┴ └─┘┴ ┴  ╩  ┴─┘┴ ┴┘└┘└─┘"
+    echo "  ╔═╗┬  ┌─┐┌┐┌┌─┐  ╔═╗┬  ┬ ┬┌─┐"
+    echo "  ╠═╝│  ├─┤│││├┤   ╠═╝│  │ │└─┐"
+    echo "  ╩  ┴─┘┴ ┴┘└┘└─┘  ╩  ┴─┘└─┘└─┘"
     echo ""
 }
 
@@ -104,7 +104,7 @@ function downloadFile() {
 # ─── Core Functions ────────────────────────────────────────────────────────
 
 function install() {
-    echo "Installing InfraWatch Plane..."
+    echo "Installing Plane Plus..."
     echo ""
 
     # Resolve "latest" to actual latest release version
@@ -156,12 +156,12 @@ function install() {
     echo "Pulling images..."
     $COMPOSE_CMD -f "$DOCKER_FILE_PATH" --env-file="$DOCKER_ENV_PATH" pull --quiet
     echo ""
-    echo "Installation complete. Run './install.sh start' to start services."
+    echo "Installation complete. Run './setup.sh start' to start services."
     echo ""
 }
 
 function startServices() {
-    echo "Starting InfraWatch Plane..."
+    echo "Starting Plane Plus..."
     $COMPOSE_CMD -f "$DOCKER_FILE_PATH" --env-file="$DOCKER_ENV_PATH" up -d --quiet-pull
 
     # Wait for migrator
@@ -175,7 +175,7 @@ function startServices() {
         local exit_code=$(docker inspect --format='{{.State.ExitCode}}' "$migrator_id" 2>/dev/null)
         if [ "$exit_code" -ne 0 ]; then
             echo " FAILED"
-            echo "  Migration failed. Check logs: ./install.sh logs migrator"
+            echo "  Migration failed. Check logs: ./setup.sh logs migrator"
             exit 1
         fi
         echo " done"
@@ -200,7 +200,7 @@ function startServices() {
 
     source "$DOCKER_ENV_PATH" 2>/dev/null
     echo ""
-    echo "  InfraWatch Plane is running at ${WEB_URL:-http://localhost}"
+    echo "  Plane Plus is running at ${WEB_URL:-http://localhost}"
     echo ""
 }
 
@@ -232,13 +232,13 @@ function upgrade() {
     export APP_RELEASE=$latest
     stopServices
     install
-    echo "Upgrade complete. Run './install.sh start' to start services."
+    echo "Upgrade complete. Run './setup.sh start' to start services."
 }
 
 function viewLogs() {
     local service=$1
     if [ -z "$service" ]; then
-        echo "Usage: ./install.sh logs <service>"
+        echo "Usage: ./setup.sh logs <service>"
         echo "Services: web, space, admin, live, api, worker, beat-worker, migrator, proxy, plane-db, plane-redis, plane-mq, plane-minio"
         exit 1
     fi
@@ -285,7 +285,7 @@ case "${1:-}" in
     logs)     viewLogs "$2" ;;
     backup)   backupData ;;
     *)
-        echo "Usage: ./install.sh <command>"
+        echo "Usage: ./setup.sh <command>"
         echo ""
         echo "Commands:"
         echo "  install   Download and set up Plane"
@@ -293,7 +293,7 @@ case "${1:-}" in
         echo "  stop      Stop all services"
         echo "  restart   Restart all services"
         echo "  upgrade   Upgrade to latest release"
-        echo "  logs      View logs (./install.sh logs <service>)"
+        echo "  logs      View logs (./setup.sh logs <service>)"
         echo "  backup    Backup data volumes"
         echo ""
         ;;

@@ -26,8 +26,8 @@ import interVariableWoff2 from "@fontsource-variable/inter/files/inter-latin-wgh
 import "@fontsource/material-symbols-rounded";
 import "@fontsource/ibm-plex-mono";
 
-const APP_TITLE = "InfraWatch Publish";
-const APP_DESCRIPTION = "Public boards and roadmaps powered by InfraWatch Projects.";
+const APP_TITLE = "Plane Plus Publish";
+const APP_DESCRIPTION = "Public boards and roadmaps powered by Plane Plus.";
 
 export const links: Route.LinksFunction = () => [
   { rel: "apple-touch-icon", sizes: "180x180", href: appleTouchIcon },
@@ -79,8 +79,7 @@ export const meta: Route.MetaFunction = () => [
   { property: "og:url", content: "https://projects.infrawatchlabs.com/" },
   {
     name: "keywords",
-    content:
-      "infrawatch, project management, public roadmap, work items, collaboration",
+    content: "infrawatch, project management, public roadmap, work items, collaboration",
   },
   { name: "twitter:site", content: "@infrawatchlabs" },
 ];

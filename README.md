@@ -3,7 +3,7 @@
 <p align="center">
   <picture>
     <source media="(prefers-color-scheme: dark)" srcset=".github/assets/plane-plus-lockup-light.svg">
-    <img src=".github/assets/plane-plus-lockup-dark.svg" alt="Plane × InfraWatch — Plane Plus" width="460">
+    <img src=".github/assets/plane-plus-lockup-dark.svg" alt="Plane Plus" width="460">
   </picture>
 </p>
 
@@ -22,7 +22,7 @@
 
 <p align="center">
   <a href="https://infrawatchlabs.com"><b>Website</b></a> •
-  <a href="https://github.com/infrawatchlabs/plane-plus-sdk-mcp"><b>SDK & MCP server</b></a> •
+  <a href="https://github.com/eyriehq/plane-plus-sdk-mcp"><b>SDK & MCP server</b></a> •
   <a href="./README-PLANE.md"><b>Upstream Plane README</b></a>
 </p>
 
@@ -88,7 +88,7 @@ projects should stay private.
 ### Companion SDK + MCP server
 
 Every endpoint above is typed and tool-callable via
-[`plane-plus-sdk-mcp`](https://github.com/infrawatchlabs/plane-plus-sdk-mcp) — a Python
+[`plane-plus-sdk-mcp`](https://github.com/eyriehq/plane-plus-sdk-mcp) — a Python
 SDK plus a FastMCP server. AI agents manage Plane workspaces without learning
 the REST surface.
 
@@ -132,20 +132,20 @@ Plane Plus wouldn't exist without the excellent work of the Plane team.
 ## License
 
 Plane Plus inherits the [GNU Affero General Public License v3.0](./LICENSE.txt)
-from upstream Plane. All InfraWatch modifications are covered by the same
+from upstream Plane. All Plane Plus modifications are covered by the same
 license.
 
 ## Security
 
 - **Plane Plus-specific modifications** (anything under `plane/iw/…` in the API,
-  or InfraWatch-prefixed code): email **security@infrawatchlabs.com**.
+  or `iw-`-prefixed code): email **security@infrawatchlabs.com**.
 - **Upstream Plane code**: please use upstream's channels — see
   [upstream security policy](https://github.com/makeplane/plane/blob/master/SECURITY.md).
 
 ## Contributing
 
 Contributions are welcome. Where possible, we'd rather see upstream-compatible
-improvements contributed to the upstream Plane project; InfraWatch-specific
+improvements contributed to the upstream Plane project; Plane Plus-specific
 additions (agent APIs, MCP integration, SDK features) belong here.
 
 ---
@@ -153,5 +153,5 @@ additions (agent APIs, MCP integration, SDK features) belong here.
 <p align="center">
   <em>Plane Plus is developed and maintained by
   <a href="https://infrawatchlabs.com">InfraWatch Labs</a>, maker of the
-  InfraWatch AI-agent platform.</em>
+  EyrieHQ observability platform.</em>
 </p>
