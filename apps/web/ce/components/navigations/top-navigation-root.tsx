@@ -20,6 +20,7 @@ import useSWR from "swr";
 import { useWorkspaceNotifications } from "@/hooks/store/notifications";
 // local imports
 import { StarUsOnGitHubLink } from "@/app/(all)/[workspaceSlug]/(projects)/star-us-link";
+import { IWAppSwitcher } from "./iw-app-switcher";
 
 export const TopNavigationRoot = observer(function TopNavigationRoot() {
   // router
@@ -50,6 +51,10 @@ export const TopNavigationRoot = observer(function TopNavigationRoot() {
         "px-2": !showLabel,
       })}
     >
+      {/* IW: app-switcher (3x3 grid) — always visible regardless of app-rail dock state */}
+      <div className="flex shrink-0 items-center pr-1">
+        <IWAppSwitcher />
+      </div>
       {/* Workspace Menu */}
       <div className="flex-1 shrink-0">
         <WorkspaceMenuRoot variant="top-navigation" />

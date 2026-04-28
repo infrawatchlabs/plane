@@ -2774,4 +2774,25 @@ export default {
   enter_number_of_projects: "Enter number of projects",
   pin: "Pin",
   unpin: "Unpin",
+  // IW: app-switcher (3x3 grid) + Cmd+K section-nav commands.
+  // Single registry — adding a new section is one edit in app-sections.tsx
+  // plus one i18n key here.
+  iw: {
+    app_switcher: {
+      tooltip: "Switch app",
+      aria_label: "Open app switcher",
+      projects: "Projects",
+      wiki: "Wiki",
+      ai: "AI",
+      settings: "Settings",
+      dock_app_rail: "Dock App Rail",
+      undock_app_rail: "Undock App Rail",
+    },
+    power_k: {
+      nav_app_projects: "Go to Projects",
+      nav_app_wiki: "Go to Wiki",
+      nav_app_ai: "Go to AI",
+      nav_app_settings: "Go to Settings",
+    },
+  },
 } as const;
