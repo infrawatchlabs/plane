@@ -19,7 +19,7 @@
  * for the canonical pattern.
  */
 
-import { useState, type ReactNode } from "react";
+import { Fragment, useState, type ReactNode } from "react";
 import { observer } from "mobx-react";
 import { Outlet, useLocation } from "react-router";
 import { Sparkles } from "lucide-react";
@@ -27,6 +27,7 @@ import { SIDEBAR_WIDTH } from "@plane/constants";
 import { useLocalStorage } from "@plane/hooks";
 import { ResizableSidebar } from "@/components/sidebar/resizable-sidebar";
 import { AppSidebarToggleButton } from "@/components/sidebar/sidebar-toggle-button";
+import { ProjectsAppPowerKProvider } from "@/components/power-k/projects-app-provider";
 import { useAppTheme } from "@/hooks/store/use-app-theme";
 import { AISidebarContent } from "./ai-sidebar-content";
 import { AI_SECTIONS, type TAISectionDescriptor } from "./sections/sections";
@@ -47,10 +48,20 @@ function useActiveAISection(): TAISectionDescriptor | null {
 }
 
 /**
- * Main-pane breadcrumb: `<icon> <Section> [/ <item>]`.
+ * Main-pane breadcrumb: `<icon> <Section> [/ <segment>...]`.
  * - On `/ai` → `<Sparkles> AI`
  * - On `/ai/<slug>` with no item → `<icon> Vault`
- * - On `/ai/<slug>` with item → `<icon> Vault / plane-ai-module-vision.md`
+ * - On `/ai/<slug>` with item → `<icon> Vault / blogs / drafts / foo.md`
+ *
+ * Round 2 polish: every path segment from the section's `useItemLabel`
+ * hook gets its own breadcrumb chip joined by "/", so users see the
+ * entire location of the active doc in one line. The bottom-of-editor
+ * status bar that used to show the relpath has been removed — this
+ * breadcrumb is now the single source of truth.
+ *
+ * Sections that don't expose hierarchical labels (a future "Agent" with
+ * a name like "scout") still work — the split-on-"/" is a no-op and
+ * the label renders as one segment.
  *
  * Calling `section.useItemLabel()` unconditionally here is safe because
  * `AILayoutInner` is rendered inside *every* section's Provider stack
@@ -81,18 +92,40 @@ const AIMainPaneBreadcrumb = observer(function AIMainPaneBreadcrumb() {
   }
 
   const SectionIcon = activeSection.icon;
+  // Split the item label on "/" so each path segment becomes its own
+  // breadcrumb chip. We keep the leaf segment styled as primary (it's
+  // the active doc) and intermediate folder segments as secondary so
+  // the eye lands on the filename. `filter(Boolean)` defends against
+  // accidental leading/double slashes — the hook normalises them, but
+  // belt-and-braces.
+  const segments = itemLabel ? itemLabel.split("/").filter(Boolean) : [];
   return (
     <div className="flex min-w-0 items-center gap-1.5">
       <SectionIcon className="size-4 flex-shrink-0 text-secondary" />
       <span className="text-13 font-medium text-secondary">{activeSection.label_singular}</span>
-      {itemLabel && (
-        <>
-          <span className="text-13 text-tertiary">/</span>
-          <span className="truncate text-13 font-medium text-primary" title={itemLabel}>
-            {itemLabel}
-          </span>
-        </>
-      )}
+      {segments.map((seg, idx) => {
+        const isLeaf = idx === segments.length - 1;
+        // Cumulative path is unique per row (e.g. "blogs", "blogs/drafts",
+        // "blogs/drafts/foo.md") — gives React a stable, content-derived
+        // key without resorting to the array index. Two folders named
+        // the same at different depths still get distinct keys.
+        const cumulative = segments.slice(0, idx + 1).join("/");
+        return (
+          <Fragment key={cumulative}>
+            <span className="text-13 text-tertiary">/</span>
+            <span
+              className={
+                isLeaf
+                  ? "min-w-0 truncate text-13 font-medium text-primary"
+                  : "flex-shrink-0 text-13 font-medium text-secondary"
+              }
+              title={isLeaf ? (itemLabel ?? seg) : seg}
+            >
+              {seg}
+            </span>
+          </Fragment>
+        );
+      })}
     </div>
   );
 });
@@ -147,7 +180,17 @@ function AILayout() {
       tree = <Provider>{tree}</Provider>;
     }
   }
-  return tree;
+  // Cmd-K command palette: same provider Wiki and Projects mount —
+  // gives /ai/* routes the global keyboard shortcut + workspace-level
+  // modals (create issue, switch workspace, …). Sits as a sibling so
+  // it's outside the section-provider stack but still inside any
+  // workspace-level providers higher up in the tree.
+  return (
+    <>
+      <ProjectsAppPowerKProvider />
+      {tree}
+    </>
+  );
 }
 
 export default AILayout;

@@ -47,10 +47,21 @@ export function AISidebarContent() {
                 wider so VAULTS / AGENTS / CHATS read as section
                 dividers, not items. The section icon sits muted to the
                 left so the eye can grab the row at a glance without
-                competing with the type. */}
-            <div className="flex items-center gap-1.5 px-5 pb-1.5">
-              <section.icon className="size-3 flex-shrink-0 text-placeholder" />
-              <span className="tracking-wider text-11 font-semibold text-placeholder uppercase">{section.label}</span>
+                competing with the type.
+
+                Round 2 polish: section.HeaderAction (e.g. VAULTS' "+
+                New" button) renders on the right via justify-between so
+                creation lives on the header row instead of a second
+                row below it. Saves vertical space in the sidebar and
+                matches what most file-browser sidebars do. */}
+            <div className="flex items-center justify-between gap-1.5 px-5 pb-1.5">
+              <div className="flex min-w-0 items-center gap-1.5">
+                <section.icon className="size-3 flex-shrink-0 text-placeholder" />
+                <span className="tracking-wider truncate text-11 font-semibold text-placeholder uppercase">
+                  {section.label}
+                </span>
+              </div>
+              {section.HeaderAction && <section.HeaderAction />}
             </div>
             <section.SidebarContent />
           </div>

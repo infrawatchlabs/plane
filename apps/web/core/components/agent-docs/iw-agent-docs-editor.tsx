@@ -7,14 +7,28 @@
  *
  * UX:
  *   - Tabs: Edit | Preview
+ *     The active tab is mirrored to the URL via `?view=edit|preview` so a
+ *     refresh (or copy-paste of the URL into another tab) restores the
+ *     same view. Click handlers use `replace: true` to avoid piling
+ *     entries onto the browser history stack — the URL just reflects
+ *     the current view, same pattern as `?path=` in the VAULTS provider.
+ *     The tab is intentionally a *session preference*, not a per-doc
+ *     property: switching docs preserves your current tab choice.
  *   - Save button (disabled while clean / saving)
  *   - On 409 stale: banner appears with Reload button. Local edits stay in
  *     the textarea (we don't auto-discard) but the user has to either
  *     Reload (drop edits, refetch) or copy-paste their changes elsewhere.
  *   - Cmd/Ctrl+S triggers save.
+ *
+ * Note on the version label: we used to render "v{N} · synced/unsaved/saved"
+ * next to the Save button, but with no history/revisions UI yet the version
+ * number is just noise. The optimistic-concurrency machinery (If-Match
+ * header derived from `state.doc.version`) is unchanged — only the visible
+ * label was removed. Add the label back when a revisions UI lands.
  */
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSearchParams } from "react-router";
 import { Loader2, RefreshCcw, Save } from "lucide-react";
 import { cn } from "@plane/utils";
 import { AgentDocStaleError, agentDocsClient, type TAgentDoc } from "@/services/agent-docs";
@@ -28,10 +42,37 @@ type Props = {
 
 type LoadState = { kind: "loading" } | { kind: "ready"; doc: TAgentDoc } | { kind: "error"; message: string };
 
+type ViewTab = "edit" | "preview";
+
+/** Treat anything that isn't the literal "preview" string as the default Edit tab. */
+function parseViewParam(raw: string | null): ViewTab {
+  return raw === "preview" ? "preview" : "edit";
+}
+
 export function AgentDocsEditor({ workspaceSlug, path, onAfterSave }: Props) {
   const [state, setState] = useState<LoadState>({ kind: "loading" });
   const [draft, setDraft] = useState<string>("");
-  const [tab, setTab] = useState<"edit" | "preview">("edit");
+  const [searchParams, setSearchParams] = useSearchParams();
+  const tab: ViewTab = parseViewParam(searchParams.get("view"));
+  // Tab choice lives in the URL (`?view=edit|preview`) so a refresh
+  // restores the same tab. We use `replace: true` to keep the browser
+  // history clean — the URL is a view-state mirror, not a navigation
+  // event. Default ("edit") is encoded by *omitting* the param so the
+  // URL stays clean for first-load doc opens.
+  const setTab = useCallback(
+    (next: ViewTab) => {
+      setSearchParams(
+        (prev) => {
+          const params = new URLSearchParams(prev);
+          if (next === "preview") params.set("view", "preview");
+          else params.delete("view");
+          return params;
+        },
+        { replace: true }
+      );
+    },
+    [setSearchParams]
+  );
   const [saving, setSaving] = useState(false);
   const [stale, setStale] = useState<{ message: string } | null>(null);
   const [savedFlash, setSavedFlash] = useState(false);
@@ -161,9 +202,12 @@ export function AgentDocsEditor({ workspaceSlug, path, onAfterSave }: Props) {
           </TabButton>
         </div>
         <div className="flex items-center gap-2 py-2">
-          <span className="text-11 text-tertiary">
-            v{state.doc.version} · {isDirty ? "unsaved" : savedFlash ? "saved ✓" : "synced"}
-          </span>
+          {/* The "v{N} · synced/unsaved/saved" indicator used to live here.
+              Removed pending a revisions UI — see file header. The save
+              button still surfaces "unsaved" implicitly via its disabled
+              state, and the brief saved-flash check below mirrors the
+              previous "saved ✓" affordance without leaking the version. */}
+          {savedFlash && !isDirty && <span className="text-11 text-tertiary">saved ✓</span>}
           <button
             type="button"
             onClick={handleSave}
@@ -216,9 +260,14 @@ export function AgentDocsEditor({ workspaceSlug, path, onAfterSave }: Props) {
         )}
       </div>
 
-      {/* footer */}
-      <div className="flex items-center justify-between border-t border-subtle px-4 py-1.5 text-11 text-tertiary">
-        <span className="font-code">{path}</span>
+      {/* footer
+          The full doc path used to render here in code font. Now that
+          the AI-layout breadcrumb at the top of the main pane shows
+          every path segment, the bottom path was redundant — we kept
+          one source of truth (the breadcrumb). The chars/lines counter
+          is still useful editor info, so we keep it justified to the
+          right. */}
+      <div className="flex items-center justify-end border-t border-subtle px-4 py-1.5 text-11 text-tertiary">
         <span>
           {draft.length} chars · {draft.split(/\r?\n/).length} lines
         </span>
