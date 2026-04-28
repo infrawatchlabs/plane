@@ -7,13 +7,20 @@
 // components
 import type { TPowerKCommandConfig } from "@/components/power-k/core/types";
 // local imports
+import { usePowerKAppSectionCommands } from "./app-section-commands";
 import type { TPowerKNavigationCommandKeys } from "./commands";
 import { usePowerKNavigationCommandsRecord } from "./commands";
 
 export const usePowerKNavigationCommands = (): TPowerKCommandConfig[] => {
   const optionsList: Record<TPowerKNavigationCommandKeys, TPowerKCommandConfig> = usePowerKNavigationCommandsRecord();
+  // IW: top-level section nav — "Go to Projects/Wiki/AI/Settings".
+  // Sourced from the same APP_SECTIONS registry the 3x3 app-switcher uses.
+  const appSectionCommands = usePowerKAppSectionCommands();
 
   return [
+    // IW: top-level app-section nav surfaces first — these are the highest-
+    // frequency navigation actions and should rank above project/workspace.
+    ...appSectionCommands,
     // Open actions from lowest to highest scope
     optionsList["open_project_cycle"],
     optionsList["open_project_module"],
