@@ -23,9 +23,8 @@ import interVariableWoff2 from "@fontsource-variable/inter/files/inter-latin-wgh
 import "@fontsource/material-symbols-rounded";
 import "@fontsource/ibm-plex-mono";
 
-const APP_TITLE = "InfraWatch Admin";
-const APP_DESCRIPTION =
-  "Admin panel for InfraWatch Projects — manage instances, settings, and configuration.";
+const APP_TITLE = "Plane Plus Admin";
+const APP_DESCRIPTION = "Admin panel for Plane Plus — manage instances, settings, and configuration.";
 
 export const links: LinksFunction = () => [
   { rel: "apple-touch-icon", sizes: "180x180", href: appleTouchIcon },
@@ -68,8 +67,7 @@ export const meta: Route.MetaFunction = () => [
   { property: "og:url", content: "https://projects.infrawatchlabs.com/" },
   {
     name: "keywords",
-    content:
-      "infrawatch, project management, admin, configuration, instance management",
+    content: "infrawatch, project management, admin, configuration, instance management",
   },
   { name: "twitter:site", content: "@infrawatchlabs" },
 ];

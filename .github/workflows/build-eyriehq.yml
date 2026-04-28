@@ -1,4 +1,4 @@
-name: Build & Push InfraWatch Plane Images
+name: Build & Push EyrieHQ Plane Images
 
 on:
   workflow_dispatch:
@@ -28,7 +28,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  DOCKER_ORG: infrawatchlabs
+  DOCKER_ORG: eyriehq
   DOCKER_BUILDKIT: 1
 
 jobs:
@@ -211,5 +211,5 @@ jobs:
           echo "| Image | Tag |" >> "$GITHUB_STEP_SUMMARY"
           echo "|-------|-----|" >> "$GITHUB_STEP_SUMMARY"
           for img in plane-web plane-space plane-admin plane-live plane-api plane-proxy; do
-            echo "| infrawatchlabs/${img} | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
+            echo "| eyriehq/${img} | ${TAG} |" >> "$GITHUB_STEP_SUMMARY"
           done
