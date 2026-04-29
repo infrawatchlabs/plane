@@ -11,7 +11,7 @@ export function AuthHeader() {
   return (
     <div className="sticky top-0 flex w-full flex-shrink-0 items-center justify-between gap-6">
       <Link href="/">
-        <PlaneLockup height={20} width={230} className="text-primary" />
+        <PlaneLockup className="h-16 w-auto" />
       </Link>
     </div>
   );
