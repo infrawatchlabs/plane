@@ -84,7 +84,7 @@ export const OnboardingHeader = observer(function OnboardingHeader(props: Onboar
               <ChevronLeftIcon className="size-6 text-placeholder" />
             </button>
           )}
-          <PlaneLockup height={20} width={230} className="text-primary" />
+          <PlaneLockup className="h-16 w-auto" />
         </div>
         <SwitchAccountDropdown fullName={userName} />
       </div>
