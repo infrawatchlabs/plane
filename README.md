@@ -17,11 +17,11 @@
   <b>An AI-agent-first project management platform, built on <a href="https://plane.so">Plane</a>.</b>
 </p>
 <p align="center">
-  by <a href="https://infrawatchlabs.com">InfraWatch Labs</a>
+  by <a href="https://eyriehq.com">InfraWatch Labs</a>
 </p>
 
 <p align="center">
-  <a href="https://infrawatchlabs.com"><b>Website</b></a> •
+  <a href="https://eyriehq.com"><b>Website</b></a> •
   <a href="https://github.com/eyriehq/plane-plus-sdk-mcp"><b>SDK & MCP server</b></a> •
   <a href="./README-PLANE.md"><b>Upstream Plane README</b></a>
 </p>
@@ -138,7 +138,7 @@ license.
 ## Security
 
 - **Plane Plus-specific modifications** (anything under `plane/iw/…` in the API,
-  or `iw-`-prefixed code): email **security@infrawatchlabs.com**.
+  or `iw-`-prefixed code): email **security@eyriehq.com**.
 - **Upstream Plane code**: please use upstream's channels — see
   [upstream security policy](https://github.com/makeplane/plane/blob/master/SECURITY.md).
 
@@ -152,6 +152,6 @@ additions (agent APIs, MCP integration, SDK features) belong here.
 
 <p align="center">
   <em>Plane Plus is developed and maintained by
-  <a href="https://infrawatchlabs.com">InfraWatch Labs</a>, maker of the
+  <a href="https://eyriehq.com">InfraWatch Labs</a>, maker of the
   EyrieHQ observability platform.</em>
 </p>
