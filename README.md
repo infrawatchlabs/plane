@@ -17,7 +17,7 @@
   <b>An AI-agent-first project management platform, built on <a href="https://plane.so">Plane</a>.</b>
 </p>
 <p align="center">
-  by <a href="https://eyriehq.com">InfraWatch Labs</a>
+  by <a href="https://eyriehq.com">EyrieHQ</a>
 </p>
 
 <p align="center">
@@ -152,6 +152,5 @@ additions (agent APIs, MCP integration, SDK features) belong here.
 
 <p align="center">
   <em>Plane Plus is developed and maintained by
-  <a href="https://eyriehq.com">InfraWatch Labs</a>, maker of the
-  EyrieHQ observability platform.</em>
+  <a href="https://eyriehq.com">EyrieHQ</a>.</em>
 </p>
